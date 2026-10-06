@@ -140,6 +140,13 @@ export function setupTelegramBot(
       thesis: result
     });
 
+    auditLogger.log({
+      eventType: 'ORDER_PROPOSAL',
+      actor: 'director',
+      level: 'INFO',
+      details: 'Nueva propuesta asimétrica evaluada y sometida a aprobación en Telegram'
+    });
+
     await ctx.reply(result, { parse_mode: 'Markdown', ...mainKeyboard });
     await ctx.reply(
       `🎯 *Acción del Inversor:* ¿Deseas aprobar la propuesta recomendada?`,
@@ -163,7 +170,8 @@ export function setupTelegramBot(
       auditLogger.log({
         eventType: 'ORDER_EXECUTED',
         actor: 'alpaca_broker',
-        details: `Orden aprobada por el usuario para ${proposal.symbol}`,
+        level: 'SUCCESS',
+        details: `Orden aprobada por el inversor para ${proposal.symbol}`,
         payload: proposal
       });
 
@@ -189,9 +197,10 @@ export function setupTelegramBot(
     activeProposals.delete(proposalId);
 
     auditLogger.log({
-      eventType: 'USER_ACTION',
+      eventType: 'ORDER_REJECTED',
       actor: 'user',
-      details: `Propuesta ${proposalId} rechazada por el usuario`
+      level: 'WARN',
+      details: `Propuesta ${proposalId} descartada por el inversor en Telegram`
     });
 
     await ctx.editMessageText('❌ *Propuesta descartada.* Los agentes continuarán buscando nuevas alternativas.', { parse_mode: 'Markdown' });
@@ -208,6 +217,13 @@ export function setupTelegramBot(
 
   // 7. Botón táctil: 🛡️ Blindar Ganancias
   bot.hears(['🛡️ Blindar Ganancias', '/reajustar'], async (ctx) => {
+    auditLogger.log({
+      eventType: 'RISK_VALIDATION',
+      actor: 'risk_manager',
+      level: 'INFO',
+      details: 'Auditoría de stops dinámicos y protección de capital completada'
+    });
+
     await ctx.reply(
       '🛡️ *Oficial de Riesgo:* Auditando estado de protección...\n\n' +
       '• Posiciones con Trailing Stops activos: MSFT (Piso en $520.00), QQQ (Piso en $750.00).\n' +
@@ -221,6 +237,14 @@ export function setupTelegramBot(
   bot.hears(['📰 Sentimiento Macro', '/noticias'], async (ctx) => {
     await ctx.reply('📡 *Analista:* Consultando sentimiento macro y titulares de Wall Street...', { parse_mode: 'Markdown' });
     const briefing = await opencode.runTask('Resume en 3 puntos breves el sentimiento actual de Wall Street y el impacto en las Big Tech y los Bonos del Tesoro.');
+    
+    auditLogger.log({
+      eventType: 'MACRO_BRIEFING',
+      actor: 'market_analyst',
+      level: 'INFO',
+      details: 'Briefing macroeconómico generado con OpenCode'
+    });
+
     await ctx.reply(briefing, { parse_mode: 'Markdown', ...mainKeyboard });
   });
 
@@ -231,7 +255,8 @@ export function setupTelegramBot(
       auditLogger.log({
         eventType: 'EMERGENCY_STOP',
         actor: 'user',
-        details: 'Kill-switch de emergencia accionado por el usuario'
+        level: 'ERROR',
+        details: 'Kill-switch de emergencia accionado por el usuario desde Telegram'
       });
 
       await ctx.reply(

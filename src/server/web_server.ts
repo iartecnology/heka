@@ -89,8 +89,25 @@ export function startWebServer(alpaca: AlpacaClient, port: number = 3000) {
       return;
     }
 
-    // 2. API: Historial de Logs ordenados
-    if (req.url === '/api/logs') {
+    // 2. API: Historial de Logs ordenados con soporte para filtros y exportación
+    const parsedUrl = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+
+    if (parsedUrl.pathname === '/api/logs') {
+      // 2.1 Limpiar bitácora
+      if (req.method === 'DELETE') {
+        try {
+          if (fs.existsSync(auditFile)) {
+            fs.writeFileSync(auditFile, '', 'utf8');
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ status: 'ok', message: 'Bitácora limpiada exitosamente' }));
+        } catch (err: any) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ status: 'error', message: err.message }));
+        }
+        return;
+      }
+
       try {
         if (!fs.existsSync(auditFile)) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -103,12 +120,30 @@ export function startWebServer(alpaca: AlpacaClient, port: number = 3000) {
           .split('\n')
           .filter(l => l.length > 0);
 
-        const logs = lines
+        let logs = lines
           .map(l => {
             try { return JSON.parse(l); } catch { return null; }
           })
           .filter(Boolean)
           .reverse(); // Los más recientes primero
+
+        const filterActor = parsedUrl.searchParams.get('actor');
+        const filterType = parsedUrl.searchParams.get('type');
+        const query = parsedUrl.searchParams.get('q')?.toLowerCase();
+
+        if (filterActor && filterActor !== 'ALL') {
+          logs = logs.filter(l => l.actor === filterActor);
+        }
+        if (filterType && filterType !== 'ALL') {
+          logs = logs.filter(l => l.eventType === filterType);
+        }
+        if (query) {
+          logs = logs.filter(l => 
+            (l.details && l.details.toLowerCase().includes(query)) ||
+            (l.actor && l.actor.toLowerCase().includes(query)) ||
+            (l.eventType && l.eventType.toLowerCase().includes(query))
+          );
+        }
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(logs));

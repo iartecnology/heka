@@ -3,8 +3,18 @@ import path from 'path';
 
 export interface AuditEvent {
   timestamp: string;
-  eventType: 'USER_ACTION' | 'RESEARCH_COMPLETED' | 'RISK_VALIDATION' | 'ORDER_PROPOSAL' | 'ORDER_EXECUTED' | 'EMERGENCY_STOP';
-  actor: 'director' | 'market_analyst' | 'risk_manager' | 'alpaca_broker' | 'user';
+  eventType: 
+    | 'USER_ACTION' 
+    | 'RESEARCH_COMPLETED' 
+    | 'RISK_VALIDATION' 
+    | 'ORDER_PROPOSAL' 
+    | 'ORDER_EXECUTED' 
+    | 'ORDER_REJECTED'
+    | 'MACRO_BRIEFING'
+    | 'EMERGENCY_STOP'
+    | 'SYSTEM_ALERT';
+  actor: 'director' | 'market_analyst' | 'risk_manager' | 'alpaca_broker' | 'user' | 'system';
+  level?: 'INFO' | 'SUCCESS' | 'WARN' | 'ERROR';
   details: string;
   payload?: any;
 }

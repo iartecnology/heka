@@ -169,35 +169,117 @@
     .pl-green { color: var(--success); font-weight: 700; }
     .pl-red { color: var(--danger); font-weight: 700; }
 
-    /* Chat & Auditoría */
+    /* Chat & Auditoría Forense Avanzada */
     .terminal-box {
-      background: #000;
+      background: #06090e;
       border: 1px solid var(--border);
       border-radius: 10px;
       padding: 16px;
       font-family: 'JetBrains Mono', monospace;
       font-size: 12px;
-      height: 480px;
+      height: 520px;
       overflow-y: auto;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.6);
+    }
+    .terminal-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 10px 14px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .terminal-input {
+      background: #000;
+      border: 1px solid var(--border);
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      outline: none;
+      flex: 1;
+      min-width: 160px;
+      font-family: inherit;
+    }
+    .terminal-input:focus {
+      border-color: var(--primary);
+    }
+    .terminal-select {
+      background: #000;
+      border: 1px solid var(--border);
+      color: #cbd5e1;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      outline: none;
+      cursor: pointer;
+    }
+    .terminal-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      color: #cbd5e1;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .terminal-btn:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--primary);
+      color: var(--primary);
     }
     .log-row {
-      padding: 8px 0;
+      padding: 10px 0;
       border-bottom: 1px solid rgba(255, 255, 255, 0.04);
       display: flex;
-      gap: 12px;
+      flex-direction: column;
+      gap: 4px;
+      transition: background 0.15s ease;
     }
-    .log-time { color: var(--muted); white-space: nowrap; }
+    .log-row:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .log-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .log-time { color: var(--muted); font-size: 11px; white-space: nowrap; }
     .log-tag {
       font-weight: 700;
-      padding: 1px 6px;
+      padding: 2px 7px;
       border-radius: 4px;
       font-size: 10px;
-      height: fit-content;
+      letter-spacing: 0.5px;
     }
-    .tag-user { background: rgba(56, 189, 248, 0.2); color: var(--primary); }
-    .tag-risk { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
-    .tag-order { background: rgba(16, 185, 129, 0.2); color: var(--success); }
-    .tag-analyst { background: rgba(129, 140, 248, 0.2); color: var(--accent); }
+    .tag-user { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+    .tag-risk { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .tag-order { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .tag-analyst { background: rgba(129, 140, 248, 0.15); color: #818cf8; border: 1px solid rgba(129, 140, 248, 0.3); }
+    .tag-proposal { background: rgba(236, 72, 153, 0.15); color: #f472b6; border: 1px solid rgba(236, 72, 153, 0.3); }
+    .tag-danger { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .log-actor { font-weight: 700; font-size: 11px; }
+    .actor-director { color: #facc15; }
+    .actor-analyst { color: #818cf8; }
+    .actor-risk { color: #f59e0b; }
+    .actor-broker { color: #10b981; }
+    .actor-user { color: #38bdf8; }
+    .log-body {
+      color: #e2e8f0;
+      font-size: 12px;
+      line-height: 1.5;
+      padding-left: 2px;
+      word-break: break-word;
+    }
     /* Media Queries para Dispositivos Móviles */
     @media (max-width: 900px) {
       body { padding: 12px; }
@@ -394,8 +476,49 @@
   <div id="tab-logs" class="tab-pane">
     <div class="card">
       <div class="card-title">
-        <span>Bitácora de Auditoría Forense & Historial de Chat</span>
-        <button onclick="fetchLogs()" style="background:none; border:none; color:var(--primary); cursor:pointer; font-size:12px; font-weight:700;">🔄 Actualizar</button>
+        <span>📜 Bitácora de Auditoría Forense & Consola de Operaciones</span>
+        <div style="display:flex; gap:8px;">
+          <button class="terminal-btn" onclick="exportLogsJSON()">📥 JSON</button>
+          <button class="terminal-btn" onclick="exportLogsCSV()">📊 CSV</button>
+          <button class="terminal-btn" onclick="clearLogs()" style="color:#ef4444;">🗑️ Limpiar</button>
+          <button class="terminal-btn" onclick="fetchLogs()" style="color:var(--primary);">🔄 Actualizar</button>
+        </div>
+      </div>
+
+      <!-- Barra de Filtros y Búsqueda -->
+      <div class="terminal-toolbar">
+        <input 
+          type="text" 
+          id="log-search-input" 
+          class="terminal-input" 
+          placeholder="🔎 Buscar en logs (ej: MSFT, stop, aprobado, balance)..." 
+          oninput="applyLogFilters()"
+        />
+
+        <select id="log-filter-actor" class="terminal-select" onchange="applyLogFilters()">
+          <option value="ALL">👤 Todos los Agentes / Actores</option>
+          <option value="director">👑 Director / Orquestador</option>
+          <option value="market_analyst">🔍 Analista Fundamental</option>
+          <option value="risk_manager">🛡️ Oficial de Riesgo</option>
+          <option value="alpaca_broker">⚡ Broker Alpaca</option>
+          <option value="user">👤 Inversor (Telegram)</option>
+        </select>
+
+        <select id="log-filter-type" class="terminal-select" onchange="applyLogFilters()">
+          <option value="ALL">📑 Todos los Eventos</option>
+          <option value="ORDER_EXECUTED">🟢 Órdenes Ejecutadas</option>
+          <option value="ORDER_PROPOSAL">💡 Propuestas Asimétricas</option>
+          <option value="ORDER_REJECTED">❌ Órdenes Descartadas</option>
+          <option value="RESEARCH_COMPLETED">🧠 Investigaciones</option>
+          <option value="RISK_VALIDATION">🛡️ Chequeos de Riesgo</option>
+          <option value="MACRO_BRIEFING">📰 Sentimiento Macro</option>
+          <option value="EMERGENCY_STOP">🛑 Kill-Switch</option>
+          <option value="USER_ACTION">💬 Acciones del Usuario</option>
+        </select>
+
+        <span id="logs-count-badge" style="font-size:11px; color:var(--muted); margin-left:auto;">
+          0 eventos
+        </span>
       </div>
 
       <div class="terminal-box" id="logs-container">
@@ -541,34 +664,134 @@
       }
     }
 
+    let allFetchedLogs = [];
+
     async function fetchLogs() {
       try {
         const res = await fetch('/api/logs');
-        const logs = await res.json();
-        const container = document.getElementById('logs-container');
-
-        if (!logs || logs.length === 0) {
-          container.innerHTML = `<div style="color:var(--muted); text-align:center; padding:20px;">No hay eventos registrados aún.</div>`;
-          return;
-        }
-
-        container.innerHTML = logs.map(l => {
-          let tagClass = 'tag-user';
-          if (l.eventType === 'ORDER_EXECUTED') tagClass = 'tag-order';
-          if (l.eventType === 'RISK_VALIDATION') tagClass = 'tag-risk';
-          if (l.eventType === 'RESEARCH_COMPLETED') tagClass = 'tag-analyst';
-
-          const time = new Date(l.timestamp).toLocaleTimeString() + ' ' + new Date(l.timestamp).toLocaleDateString();
-
-          return `<div class="log-row">
-            <span class="log-time">[${time}]</span>
-            <span class="log-tag ${tagClass}">${l.eventType}</span>
-            <span style="font-weight:700; color:var(--primary);">&lt;${l.actor}&gt;</span>
-            <span class="log-text">${l.details}</span>
-          </div>`;
-        }).join('');
+        allFetchedLogs = await res.json();
+        applyLogFilters();
       } catch (e) {
         console.error('Error fetching logs:', e);
+      }
+    }
+
+    function applyLogFilters() {
+      const container = document.getElementById('logs-container');
+      const searchVal = (document.getElementById('log-search-input')?.value || '').toLowerCase().trim();
+      const actorVal = document.getElementById('log-filter-actor')?.value || 'ALL';
+      const typeVal = document.getElementById('log-filter-type')?.value || 'ALL';
+
+      let filtered = allFetchedLogs || [];
+
+      if (actorVal !== 'ALL') {
+        filtered = filtered.filter(l => l.actor === actorVal);
+      }
+      if (typeVal !== 'ALL') {
+        filtered = filtered.filter(l => l.eventType === typeVal);
+      }
+      if (searchVal) {
+        filtered = filtered.filter(l => 
+          (l.details && l.details.toLowerCase().includes(searchVal)) ||
+          (l.actor && l.actor.toLowerCase().includes(searchVal)) ||
+          (l.eventType && l.eventType.toLowerCase().includes(searchVal)) ||
+          (l.payload && JSON.stringify(l.payload).toLowerCase().includes(searchVal))
+        );
+      }
+
+      const countBadge = document.getElementById('logs-count-badge');
+      if (countBadge) {
+        countBadge.innerText = `${filtered.length} / ${allFetchedLogs.length} eventos`;
+      }
+
+      if (!filtered || filtered.length === 0) {
+        container.innerHTML = `<div style="color:var(--muted); text-align:center; padding:30px;">
+          ${allFetchedLogs.length === 0 ? 'No hay eventos en la bitácora todavía.' : 'Ningún evento coincide con el filtro o búsqueda.'}
+        </div>`;
+        return;
+      }
+
+      container.innerHTML = filtered.map(l => {
+        let tagClass = 'tag-user';
+        let actorClass = 'actor-user';
+        let actorLabel = l.actor;
+
+        if (l.actor === 'director') { actorClass = 'actor-director'; actorLabel = '👑 Director'; }
+        else if (l.actor === 'market_analyst') { actorClass = 'actor-analyst'; actorLabel = '🔍 Analista'; }
+        else if (l.actor === 'risk_manager') { actorClass = 'actor-risk'; actorLabel = '🛡️ Riesgo'; }
+        else if (l.actor === 'alpaca_broker') { actorClass = 'actor-broker'; actorLabel = '⚡ Broker'; }
+        else if (l.actor === 'user') { actorClass = 'actor-user'; actorLabel = '👤 Inversor'; }
+
+        if (l.eventType === 'ORDER_EXECUTED') tagClass = 'tag-order';
+        else if (l.eventType === 'ORDER_PROPOSAL') tagClass = 'tag-proposal';
+        else if (l.eventType === 'ORDER_REJECTED' || l.eventType === 'EMERGENCY_STOP') tagClass = 'tag-danger';
+        else if (l.eventType === 'RISK_VALIDATION') tagClass = 'tag-risk';
+        else if (l.eventType === 'RESEARCH_COMPLETED' || l.eventType === 'MACRO_BRIEFING') tagClass = 'tag-analyst';
+
+        const timeObj = new Date(l.timestamp);
+        const time = timeObj.toLocaleTimeString('es-ES', { timeZone: 'America/New_York' });
+        const date = timeObj.toLocaleDateString('es-ES', { timeZone: 'America/New_York' });
+
+        return `<div class="log-row">
+          <div class="log-header">
+            <span class="log-time">[${date} ${time} ET]</span>
+            <span class="log-tag ${tagClass}">${l.eventType}</span>
+            <span class="log-actor ${actorClass}">&lt;${actorLabel}&gt;</span>
+          </div>
+          <div class="log-body">${escapeHtml(l.details || '')}</div>
+        </div>`;
+      }).join('');
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function exportLogsJSON() {
+      const blob = new Blob([JSON.stringify(allFetchedLogs, null, 2)], { type: 'application/json' });
+      downloadFile(blob, `heka_auditoria_${new Date().toISOString().slice(0,10)}.json`);
+    }
+
+    function exportLogsCSV() {
+      if (!allFetchedLogs || allFetchedLogs.length === 0) {
+        alert('No hay eventos para exportar.');
+        return;
+      }
+      const headers = ['Timestamp', 'EventType', 'Actor', 'Level', 'Details'];
+      const rows = allFetchedLogs.map(l => [
+        `"${l.timestamp}"`,
+        `"${l.eventType}"`,
+        `"${l.actor}"`,
+        `"${l.level || 'INFO'}"`,
+        `"${(l.details || '').replace(/"/g, '""')}"`
+      ]);
+      const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      downloadFile(blob, `heka_auditoria_${new Date().toISOString().slice(0,10)}.csv`);
+    }
+
+    function downloadFile(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    async function clearLogs() {
+      if (confirm('¿Estás seguro de que deseas purgar la bitácora de auditoría histórica? Esta acción no se puede deshacer.')) {
+        try {
+          const res = await fetch('/api/logs', { method: 'DELETE' });
+          if (res.ok) {
+            allFetchedLogs = [];
+            applyLogFilters();
+          }
+        } catch (e) {
+          alert('Error al limpiar logs: ' + e.message);
+        }
       }
     }
 
