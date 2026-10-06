@@ -20,7 +20,7 @@ export class OpenCodeRunner {
     try {
       const sanitizedPrompt = prompt.replace(/"/g, '\\"');
       const command = `opencode run --model ${this.reasoningModel} "${sanitizedPrompt}"`;
-      const { stdout } = await execPromise(command, { timeout: 75000 });
+      const { stdout } = await execPromise(command, { timeout: 120000 });
       return stdout.trim();
     } catch (error: any) {
       console.warn(`Fallback tras error en modelo principal: ${error.message}`);
@@ -35,7 +35,7 @@ export class OpenCodeRunner {
     try {
       const sanitizedPrompt = prompt.replace(/"/g, '\\"');
       const command = `opencode run --model ${this.fallbackModel} "${sanitizedPrompt}"`;
-      const { stdout } = await execPromise(command, { timeout: 45000 });
+      const { stdout } = await execPromise(command, { timeout: 60000 });
       return stdout.trim();
     } catch (error: any) {
       console.error('Error al ejecutar OpenCode fallback:', error);
@@ -54,7 +54,7 @@ export class OpenCodeRunner {
    * Agente Analista investiga a fondo un ticker.
    */
   async analyzeTicker(symbol: string): Promise<string> {
-    const prompt = `Actúa como el Analista Financiero de Heka. Investiga a fondo el activo ${symbol}. Analiza su valoración fundamental actual, múltiplos clave (PER, deuda), catalizadores de mercado y niveles de soporte/resistencia. Concluye de forma clara: Alcista, Neutro o Bajista, con niveles de entrada y Stop-Loss recomendado.`;
+    const prompt = `Actúa como el Analista Financiero de Heka. Investiga el activo ${symbol} de manera concisa y accionable. Analiza su precio actual, soporte, resistencia, catalizadores y valoración. Concluye de forma clara: Alcista, Neutro o Bajista, junto a un Stop-Loss sugerido.`;
     return this.runDeepTask(prompt);
   }
 

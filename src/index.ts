@@ -22,7 +22,10 @@ async function bootstrap() {
 
   const alpaca = new AlpacaClient();
   const opencode = new OpenCodeRunner();
-  const bot = new Telegraf(botToken);
+  // Ampliar timeout de Telegraf a 5 minutos (300,000ms) para que los análisis LLM profundos no causen timeout
+  const bot = new Telegraf(botToken, {
+    handlerTimeout: 300000
+  });
 
   // Iniciar servidor web de estado y logs
   startWebServer(alpaca, port);
