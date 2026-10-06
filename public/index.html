@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Heka Sentinel Pro - Panel de Control & Auditoría</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0b0f19;
+      --card-bg: #121927;
+      --card-border: #1e293b;
+      --primary: #38bdf8;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-dark);
+      color: var(--text-main);
+      padding: 24px;
+      min-height: 100vh;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--card-border);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand h1 { font-size: 24px; font-weight: 700; color: #fff; }
+    .brand span {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--primary);
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    .tab-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      background: var(--primary);
+      color: #0b0f19;
+      border-color: var(--primary);
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Grid de Estado */
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .badge-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-online { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+    .badge-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+    .agent-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .agent-item:last-child { border-bottom: none; }
+    .agent-info h4 { font-size: 14px; font-weight: 600; }
+    .agent-info p { font-size: 12px; color: var(--text-muted); }
+
+    /* Tabla de Logs */
+    .log-filter {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .log-filter input, .log-filter select {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    .log-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .log-table th {
+      background: rgba(255, 255, 255, 0.02);
+      text-align: left;
+      padding: 12px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--card-border);
+    }
+    .log-table td {
+      padding: 12px;
+      border-bottom: 1px solid var(--card-border);
+      vertical-align: top;
+    }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .pill-user { background: rgba(56, 189, 248, 0.2); color: var(--primary); }
+    .pill-risk { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+    .pill-order { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+    .pill-analyst { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <h1>🦅 HEKA SENTINEL</h1>
+      <span>SISTEMA MULTI-AGENTE ACTIVO</span>
+    </div>
+    <div id="clock" style="font-size: 13px; color: var(--text-muted);">Cargando hora...</div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('status')">📡 Estado de Servicios & Agentes</button>
+    <button class="tab-btn" onclick="switchTab('logs')">📜 Auditoría de Logs & Conversaciones</button>
+  </div>
+
+  <!-- TAB 1: ESTADO -->
+  <div id="tab-status" class="tab-content active">
+    <div class="status-grid">
+      
+      <!-- Servicios Externos -->
+      <div class="card">
+        <div class="card-title">Conectores & Servicios</div>
+        
+        <div class="agent-item">
+          <div class="agent-info">
+            <h4>Telegram Bot Gateway</h4>
+            <p>Canal de chat interactivo y botones</p>
+          </div>
+          <span class="badge-status badge-online"><span class="badge-dot"></span> EN LÍNEA</span>
+        </div>
+
+        <div class="agent-item">
+          <div class="agent-info">
+            <h4>Alpaca Trading API</h4>
+            <p>Paper Trading Broker</p>
+          </div>
+          <span id="alpaca-status" class="badge-status badge-online"><span class="badge-dot"></span> CONECTADO</span>
+        </div>
+
+        <div class="agent-item">
+          <div class="agent-info">
+            <h4>Yahoo Finance MCP</h4>
+            <p>yfinance-mcp-server (Fundamentales)</p>
+          </div>
+          <span class="badge-status badge-online"><span class="badge-dot"></span> DISPONIBLE</span>
+        </div>
+
+        <div class="agent-item">
+          <div class="agent-info">
+            <h4>OpenCode CLI Engine</h4>
+            <p>Modelo: opencode/big-pickle (200k)</p>
+          </div>
+          <span class="badge-status badge-online"><span class="badge-dot"></span> ACTIVO</span>
+        </div>
+      </div>
+
+      <!-- Squad de Agentes -->
+      <div class="card">
+        <div class="card-title">Squad de Agentes Especializados</div>
+        
+        <div class="agent-item">
+          <div class="agent-info">
+            <h4>Director de Inversión</h4>
+            <p>Orquestador y evaluador de consenso</p>
+          </div>
+          <span class="badge-status badge-online"><span class="badge-dot"></span> VIGILANDO</span>
+        </div>
+
+        <div class="agent-item">
+          <div class="agent-info">
+            <h4>Analista de Mercado & Macro</h4>
+            <p>Escaneo continuo y análisis asimétrico</p>
+          </div>
+          <span class="badge-status badge-online"><span class="badge-dot"></span> ESCANEANDO</span>
+        </div>
+
+        <div class="agent-item">
+          <div class="agent-info">
+            <h4>Oficial de Riesgo (Risk Guard)</h4>
+            <p>Trailing stops y piso de liquidez &gt;50%</p>
+          </div>
+          <span class="badge-status badge-online"><span class="badge-dot"></span> BLINDADO</span>
+        </div>
+
+        <div class="agent-item">
+          <div class="agent-info">
+            <h4>Broker de Ejecución</h4>
+            <p>Ejecución asistida bajo confirmación</p>
+          </div>
+          <span class="badge-status badge-online"><span class="badge-dot"></span> EN ESPERA</span>
+        </div>
+      </div>
+
+      <!-- Resumen de Capital -->
+      <div class="card">
+        <div class="card-title">Métricas de Portafolio en Vivo</div>
+        <div style="margin-top: 8px;">
+          <div style="font-size: 28px; font-weight: 700; color: #fff;" id="metric-equity">$--- USD</div>
+          <div style="font-size: 13px; color: var(--success); margin-top: 4px;">🟢 Cuenta Operativa en Alpaca</div>
+        </div>
+        <div style="margin-top: 20px; font-size: 13px; color: var(--text-muted); line-height: 1.8;">
+          <div>Efectivo Líquido: <strong id="metric-cash" style="color: #fff;">$---</strong></div>
+          <div>Posiciones Vivas: <strong id="metric-positions" style="color: #fff;">-</strong></div>
+          <div>Zona Horaria: <strong style="color: #fff;">New York (Wall Street)</strong></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TAB 2: LOGS -->
+  <div id="tab-logs" class="tab-content">
+    <div class="card">
+      <div class="card-title">
+        <span>Bitácora de Auditoría & Trazabilidad de Chat</span>
+        <button onclick="fetchLogs()" style="background:none; border:none; color:var(--primary); cursor:pointer; font-size:12px;">🔄 Actualizar</button>
+      </div>
+
+      <div class="log-filter">
+        <input type="text" id="log-search" placeholder="Filtrar por ticker o texto..." oninput="filterLogs()">
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>Hora (UTC)</th>
+              <th>Tipo de Evento</th>
+              <th>Agente / Actor</th>
+              <th>Detalle & Justificación</th>
+            </tr>
+          </thead>
+          <tbody id="logs-tbody">
+            <tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Cargando registros...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allLogs = [];
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      if (tab === 'status') {
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        document.getElementById('tab-status').classList.add('active');
+      } else {
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        document.getElementById('tab-logs').classList.add('active');
+        fetchLogs();
+      }
+    }
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        if (data.account) {
+          document.getElementById('metric-equity').innerText = `$${parseFloat(data.account.equity).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD`;
+          document.getElementById('metric-cash').innerText = `$${parseFloat(data.account.cash).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD`;
+          document.getElementById('metric-positions').innerText = data.positionsCount;
+        }
+      } catch (e) {
+        console.error('Error fetching status:', e);
+      }
+    }
+
+    async function fetchLogs() {
+      try {
+        const res = await fetch('/api/logs');
+        allLogs = await res.json();
+        renderLogs(allLogs);
+      } catch (e) {
+        console.error('Error fetching logs:', e);
+      }
+    }
+
+    function renderLogs(logs) {
+      const tbody = document.getElementById('logs-tbody');
+      if (logs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">No hay eventos registrados aún.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = logs.map(l => {
+        let pillClass = 'pill-user';
+        if (l.eventType === 'ORDER_EXECUTED') pillClass = 'pill-order';
+        if (l.eventType === 'RISK_VALIDATION') pillClass = 'pill-risk';
+        if (l.eventType === 'RESEARCH_COMPLETED') pillClass = 'pill-analyst';
+
+        const time = new Date(l.timestamp).toLocaleTimeString() + ' ' + new Date(l.timestamp).toLocaleDateString();
+
+        return `<tr>
+          <td style="color:var(--text-muted); font-size:11px; white-space:nowrap;">${time}</td>
+          <td><span class="pill ${pillClass}">${l.eventType}</span></td>
+          <td><strong>${l.actor}</strong></td>
+          <td>${l.details}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function filterLogs() {
+      const q = document.getElementById('log-search').value.toLowerCase();
+      const filtered = allLogs.filter(l => 
+        l.details.toLowerCase().includes(q) || 
+        l.eventType.toLowerCase().includes(q) || 
+        l.actor.toLowerCase().includes(q)
+      );
+      renderLogs(filtered);
+    }
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clock').innerText = now.toLocaleString('es-ES', { timeZone: 'America/New_York' }) + ' (New York)';
+    }
+
+    setInterval(updateClock, 1000);
+    updateClock();
+    fetchStatus();
+    setInterval(fetchStatus, 15000);
+  </script>
+</body>
+</html>
