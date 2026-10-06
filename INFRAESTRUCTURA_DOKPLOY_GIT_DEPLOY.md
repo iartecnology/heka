@@ -57,8 +57,8 @@ En el panel de tu **VPS Dokploy**:
    TELEGRAM_ALLOWED_USER_ID=tu_id_numerico_de_telegram
 
    # Alpaca API
-   ALPACA_API_KEY=PKIJRAFUS2VWBTDXJY2T73KVKN
-   ALPACA_SECRET_KEY=7ihVbaVa9vNZ7TfUskQBH1KsZvhqjS1qPDx14L4gJpMw
+   ALPACA_API_KEY=tu_alpaca_api_key
+   ALPACA_SECRET_KEY=tu_alpaca_secret_key
    ALPACA_BASE_URL=https://paper-api.alpaca.markets
 
    # Configuración de Entorno

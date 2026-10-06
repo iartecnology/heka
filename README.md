@@ -32,8 +32,8 @@ En la pestaña **Environment** de tu servicio en Dokploy, agrega:
 ```env
 TELEGRAM_BOT_TOKEN=tu_token_de_botfather
 TELEGRAM_ALLOWED_USER_ID=tu_id_numerico_de_telegram
-ALPACA_API_KEY=PKIJRAFUS2VWBTDXJY2T73KVKN
-ALPACA_SECRET_KEY=7ihVbaVa9vNZ7TfUskQBH1KsZvhqjS1qPDx14L4gJpMw
+ALPACA_API_KEY=tu_alpaca_api_key
+ALPACA_SECRET_KEY=tu_alpaca_secret_key
 ALPACA_BASE_URL=https://paper-api.alpaca.markets
 OPENCODE_MODEL=opencode/big-pickle
 NODE_ENV=production

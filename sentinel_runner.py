@@ -18,8 +18,8 @@ from circuit_breakers import CircuitBreaker
 from audit_logger import log_event
 
 # Credenciales activas de Alpaca Paper Trading
-API_KEY = os.getenv("ALPACA_API_KEY", "PKIJRAFUS2VWBTDXJY2T73KVKN")
-SECRET_KEY = os.getenv("ALPACA_SECRET_KEY", "7ihVbaVa9vNZ7TfUskQBH1KsZvhqjS1qPDx14L4gJpMw")
+API_KEY = os.getenv("ALPACA_API_KEY", "")
+SECRET_KEY = os.getenv("ALPACA_SECRET_KEY", "")
 BASE_URL = "https://paper-api.alpaca.markets/v2"
 NEWS_URL = "https://data.alpaca.markets/v1beta1/news"
 
