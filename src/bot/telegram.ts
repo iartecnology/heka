@@ -95,24 +95,39 @@ export function setupTelegramBot(
   // Callbacks de los botones del selector
   bot.action(/analyze_(.+)/, async (ctx) => {
     const symbol = ctx.match[1];
-    await ctx.answerCbQuery();
-    updateAgentActivity('analyst', `[INVESTIGACIÓN] Analizando a fondo ${symbol} (múltiplos PER, Wall Street targets)`, 'ANALIZANDO');
+    try {
+      await ctx.answerCbQuery(`Analizando ${symbol}...`);
+    } catch (e) {
+      // Ignorar si el callback expiró en Telegram
+    }
+
+    updateAgentActivity('analyst', `[INVESTIGACIÓN] Analizando a fondo ${symbol} con Yahoo Finance y Alpaca Data`, 'ANALIZANDO');
     updateAgentActivity('director', `[ESPERA] Aguardando tesis financiera de ${symbol} por parte del Analista`, 'EVALUANDO');
 
-    await ctx.reply(`🧠 *Analista de Heka:* Iniciando investigación profunda de *${symbol}* con razonamiento avanzado (big-pickle)...\n⏳ Evaluando múltiplos PER, balances y sentimiento macro (aprox. 30-40 seg)...`, { parse_mode: 'Markdown' });
+    await ctx.reply(`🧠 *Analista de Heka:* Investigando en tiempo real *${symbol}*...\n⏳ Consultando múltiplos fundamentales, PER, balance y sentimiento macro...`, { parse_mode: 'Markdown' });
 
-    const analysis = await opencode.analyzeTicker(symbol);
+    try {
+      const analysis = await opencode.analyzeTicker(symbol);
 
-    updateAgentActivity('analyst', `[COMPLETADO] Tesis para ${symbol} finalizada y entregada a Telegram`, 'ACTIVO');
-    updateAgentActivity('director', `[SUPERVISIÓN] Tesis de ${symbol} despachada al inversor`, 'ACTIVO');
+      updateAgentActivity('analyst', `[COMPLETADO] Tesis para ${symbol} finalizada y entregada a Telegram`, 'ACTIVO');
+      updateAgentActivity('director', `[SUPERVISIÓN] Tesis de ${symbol} despachada al inversor`, 'ACTIVO');
 
-    auditLogger.log({
-      eventType: 'RESEARCH_COMPLETED',
-      actor: 'market_analyst',
-      details: `Análisis profundo generado para ${symbol}`
-    });
+      auditLogger.log({
+        eventType: 'RESEARCH_COMPLETED',
+        actor: 'market_analyst',
+        level: 'INFO',
+        details: `Análisis profundo generado para ${symbol}`
+      });
 
-    await ctx.reply(analysis, { parse_mode: 'Markdown' });
+      try {
+        await ctx.reply(analysis, { parse_mode: 'Markdown' });
+      } catch (err) {
+        // En caso de que el markdown contenga caracteres conflictivos
+        await ctx.reply(analysis);
+      }
+    } catch (error: any) {
+      await ctx.reply(`❌ Error durante el análisis de ${symbol}: ${error.message}`);
+    }
   });
 
   // 5. Botón táctil: 💡 Ver Nuevas Propuestas (Agentes Proactivos)
@@ -121,7 +136,7 @@ export function setupTelegramBot(
     updateAgentActivity('risk', `[AUDITORÍA] Verificando que el capital libre supere el 50-60% obligatorio`, 'VERIFICANDO');
     updateAgentActivity('director', `[COORDINACIÓN] Debatiendo con Analista y Riesgo para seleccionar propuesta`, 'DEBATIENDO');
 
-    await ctx.reply('🔎 *Escuadrón Heka:* Iniciando escaneo profundo del mercado con *big-pickle* (200k tokens)...\n⏳ El Director y el Oficial de Riesgo están filtrando oportunidades asimétricas (aprox. 30-45 seg)...', { parse_mode: 'Markdown' });
+    await ctx.reply('🔎 *Escuadrón Heka:* Iniciando escaneo del mercado con *nemotron-3.5-lightning*...\n⏳ Evaluando fundamentales de S&P 500 y ETFs líderes con oficiales de riesgo...', { parse_mode: 'Markdown' });
     const positions = await alpaca.getPositions();
     const currentSymbols = positions.map((p) => p.symbol);
     const result = await opencode.scanForOpportunities(currentSymbols);
@@ -147,7 +162,11 @@ export function setupTelegramBot(
       details: 'Nueva propuesta asimétrica evaluada y sometida a aprobación en Telegram'
     });
 
-    await ctx.reply(result, { parse_mode: 'Markdown', ...mainKeyboard });
+    try {
+      await ctx.reply(result, { parse_mode: 'Markdown', ...mainKeyboard });
+    } catch {
+      await ctx.reply(result, mainKeyboard);
+    }
     await ctx.reply(
       `🎯 *Acción del Inversor:* ¿Deseas aprobar la propuesta recomendada?`,
       createProposalKeyboard(proposalId)

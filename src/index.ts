@@ -30,6 +30,11 @@ async function bootstrap() {
   // Configurar comandos y botones de Telegram
   setupTelegramBot(bot, alpaca, opencode, allowedUser);
 
+  // Capturar errores no controlados para que el bot nunca muera
+  bot.catch((err: any, ctx) => {
+    console.error(`[Telegraf Error] en update ${ctx.update.update_id}:`, err);
+  });
+
   // Configurar bucles activos y cron jobs
   setupActiveScheduler(bot, alpaca, opencode, allowedUser);
 

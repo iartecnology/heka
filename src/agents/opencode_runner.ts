@@ -5,39 +5,40 @@ const execPromise = util.promisify(exec);
 
 export class OpenCodeRunner {
   private reasoningModel: string;
-  private fastModel: string;
+  private fallbackModel: string;
 
   constructor() {
-    this.reasoningModel = 'opencode/big-pickle';
-    this.fastModel = 'opencode/nemotron-3.5-lightning-free';
+    // nemotron-3.5-lightning-free responde en segundos con herramientas de MCP integradas
+    this.reasoningModel = process.env.OPENCODE_MODEL || 'opencode/nemotron-3.5-lightning-free';
+    this.fallbackModel = 'opencode/mimo-v2.6-flash-free';
   }
 
   /**
-   * Ejecuta una tarea de investigación profunda usando big-pickle (200k tokens, CoT).
+   * Ejecuta una tarea usando el modelo de alta velocidad nemotron-3.5-lightning.
    */
   async runDeepTask(prompt: string): Promise<string> {
     try {
       const sanitizedPrompt = prompt.replace(/"/g, '\\"');
       const command = `opencode run --model ${this.reasoningModel} "${sanitizedPrompt}"`;
-      const { stdout } = await execPromise(command, { timeout: 180000 });
+      const { stdout } = await execPromise(command, { timeout: 75000 });
       return stdout.trim();
     } catch (error: any) {
-      console.warn(`Fallback a fastModel tras error en deepModel: ${error.message}`);
+      console.warn(`Fallback tras error en modelo principal: ${error.message}`);
       return this.runFastTask(prompt);
     }
   }
 
   /**
-   * Ejecuta una tarea rápida usando nemotron-3.5-lightning.
+   * Fallback a modelo ultraligero
    */
   async runFastTask(prompt: string): Promise<string> {
     try {
       const sanitizedPrompt = prompt.replace(/"/g, '\\"');
-      const command = `opencode run --model ${this.fastModel} "${sanitizedPrompt}"`;
-      const { stdout } = await execPromise(command, { timeout: 60000 });
+      const command = `opencode run --model ${this.fallbackModel} "${sanitizedPrompt}"`;
+      const { stdout } = await execPromise(command, { timeout: 45000 });
       return stdout.trim();
     } catch (error: any) {
-      console.error('Error al ejecutar OpenCode:', error);
+      console.error('Error al ejecutar OpenCode fallback:', error);
       return `Error al invocar OpenCode: ${error.message}`;
     }
   }
