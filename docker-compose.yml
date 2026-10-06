@@ -10,7 +10,7 @@ services:
     env_file:
       - .env
     ports:
-      - "3000:3000"
+      - "${PORT:-3050}:3000"
     volumes:
       # Persistencia de base de datos, historial y logs de auditoría
       - ./data:/app/data
