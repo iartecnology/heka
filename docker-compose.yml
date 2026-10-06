@@ -14,7 +14,24 @@ services:
     volumes:
       # Persistencia de base de datos, historial y logs de auditoría
       - ./data:/app/data
+    networks:
+      - heka-agentheka-custob
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.heka-web.rule=Host(`heka-agentheka-custob-62ee37-144-91-80-164.sslip.io`)"
+      - "traefik.http.routers.heka-web.entrypoints=web"
+      - "traefik.http.services.heka-web.loadbalancer.server.port=3000"
+      - "traefik.http.routers.heka-web.service=heka-web"
+      - "traefik.http.routers.heka-websecure.rule=Host(`heka-agentheka-custob-62ee37-144-91-80-164.sslip.io`)"
+      - "traefik.http.routers.heka-websecure.entrypoints=websecure"
+      - "traefik.http.services.heka-websecure.loadbalancer.server.port=3000"
+      - "traefik.http.routers.heka-websecure.service=heka-websecure"
     environment:
       - NODE_ENV=production
       - TZ=America/New_York
       - PORT=3000
+
+networks:
+  heka-agentheka-custob:
+    name: heka-agentheka-custob
+    external: true
