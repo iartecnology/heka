@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Heka Console Pro - Sistema Multi-Agente Activo</title>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
   <style>
     :root {
       --bg: #07090e;
@@ -472,35 +472,42 @@
     }
 
     function renderChart(cash, invested) {
-      const ctx = document.getElementById('allocationChart').getContext('2d');
-      if (allocationChart) {
-        allocationChart.data.datasets[0].data = [cash, invested];
-        allocationChart.update();
-        return;
-      }
+      if (typeof Chart === 'undefined') return;
+      try {
+        const canvas = document.getElementById('allocationChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (allocationChart) {
+          allocationChart.data.datasets[0].data = [cash, invested];
+          allocationChart.update();
+          return;
+        }
 
-      allocationChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: ['Efectivo Intocable', 'Capital Invertido'],
-          datasets: [{
-            data: [cash, invested],
-            backgroundColor: ['#10b981', '#38bdf8'],
-            borderColor: '#0d121d',
-            borderWidth: 3
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'bottom',
-              labels: { color: '#94a3b8', font: { size: 11, family: 'Plus Jakarta Sans' } }
+        allocationChart = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Efectivo Intocable', 'Capital Invertido'],
+            datasets: [{
+              data: [cash, invested],
+              backgroundColor: ['#10b981', '#38bdf8'],
+              borderColor: '#0d121d',
+              borderWidth: 3
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { color: '#94a3b8', font: { size: 11, family: 'Plus Jakarta Sans' } }
+              }
             }
           }
-        }
-      });
+        });
+      } catch (e) {
+        console.warn('Chart error suppressed:', e);
+      }
     }
 
     async function fetchLogs() {
