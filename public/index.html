@@ -320,48 +320,48 @@
           <div class="agent-card">
             <div class="agent-header">
               <span class="agent-name">👑 Agente Director / Orquestador</span>
-              <span class="agent-status-badge"><span class="pulse-dot"></span> ACTIVO</span>
+              <span class="agent-status-badge" id="director-status"><span class="pulse-dot"></span> ACTIVO</span>
             </div>
             <div class="agent-activity" id="director-activity">
               [VIGILANCIA] Evaluando consenso entre Analista y Riesgo. Modo activo en espera de señales asimétricas.
             </div>
-            <div class="agent-meta">Motor: OpenCode CLI (opencode/big-pickle) | Ciclo: 15 min</div>
+            <div class="agent-meta">Motor: OpenCode CLI (opencode/big-pickle) | <span id="director-time">En vivo</span></div>
           </div>
 
           <!-- Analista -->
           <div class="agent-card">
             <div class="agent-header">
               <span class="agent-name">🔍 Analista de Mercado & Macro</span>
-              <span class="agent-status-badge"><span class="pulse-dot"></span> ESCANEANDO</span>
+              <span class="agent-status-badge" id="analyst-status"><span class="pulse-dot"></span> ESCANEANDO</span>
             </div>
             <div class="agent-activity" id="analyst-activity">
               [YAHOO FINANCE & ALPACA] Escaneando múltiplos P/E, precios objetivos de Wall Street y titulares de la FED.
             </div>
-            <div class="agent-meta">Fuentes: yfinance-mcp-server, alpaca-mcp-server, news API</div>
+            <div class="agent-meta">Fuentes: yfinance-mcp-server, alpaca-mcp-server | <span id="analyst-time">En vivo</span></div>
           </div>
 
           <!-- Oficial de Riesgo -->
           <div class="agent-card">
             <div class="agent-header">
               <span class="agent-name">🛡️ Oficial de Riesgo (Risk Guard)</span>
-              <span class="agent-status-badge"><span class="pulse-dot"></span> BLINDADO</span>
+              <span class="agent-status-badge" id="risk-status"><span class="pulse-dot"></span> BLINDADO</span>
             </div>
             <div class="agent-activity" id="risk-activity">
-              [RADAR DE RIESGO] Trailing stops de MSFT fijado en $520.00 | SPY en Breakeven | Efectivo en caja >66%.
+              [RADAR DE RIESGO] Trailing stops vigentes | Efectivo en caja protegido.
             </div>
-            <div class="agent-meta">Reglas: Max Drawdown 2.0% diario | Poder de veto activo</div>
+            <div class="agent-meta">Reglas: Max Drawdown 2.0% diario | <span id="risk-time">En vivo</span></div>
           </div>
 
           <!-- Broker -->
           <div class="agent-card">
             <div class="agent-header">
               <span class="agent-name">⚡ Broker de Ejecución Alpaca</span>
-              <span class="agent-status-badge"><span class="pulse-dot"></span> EN ESPERA</span>
+              <span class="agent-status-badge" id="broker-status"><span class="pulse-dot"></span> EN ESPERA</span>
             </div>
             <div class="agent-activity" id="broker-activity">
-              [ALPACAPAPER API] Conexión establecida. 0 órdenes pendientes. Modo Human-in-the-Loop activo.
+              [ALPACAPAPER API] Conexión establecida. Modo Human-in-the-Loop activo.
             </div>
-            <div class="agent-meta">Trading API v2 | Confirmación requerida vía Telegram</div>
+            <div class="agent-meta">Trading API v2 | Telegram Heka | <span id="broker-time">En vivo</span></div>
           </div>
 
         </div>
@@ -413,6 +413,7 @@
       event.target.classList.add('active');
       document.getElementById('tab-' + tabId).classList.add('active');
       if (tabId === 'logs') fetchLogs();
+      if (tabId === 'agents') fetchAgents();
     }
 
     async function fetchStatus() {
@@ -437,6 +438,35 @@
         }
       } catch (err) {
         console.error('Error fetching status:', err);
+      }
+    }
+
+    async function fetchAgents() {
+      try {
+        const res = await fetch('/api/agents');
+        if (!res.ok) return;
+        const agents = await res.json();
+
+        const updateCard = (key) => {
+          const agent = agents[key];
+          if (!agent) return;
+          const actEl = document.getElementById(`${key}-activity`);
+          const statusEl = document.getElementById(`${key}-status`);
+          const timeEl = document.getElementById(`${key}-time`);
+
+          if (actEl && agent.activity) actEl.innerText = agent.activity;
+          if (statusEl && agent.status) {
+            statusEl.innerHTML = `<span class="pulse-dot"></span> ${agent.status}`;
+          }
+          if (timeEl && agent.lastUpdated) {
+            const timeStr = new Date(agent.lastUpdated).toLocaleTimeString('es-ES', { timeZone: 'America/New_York' });
+            timeEl.innerText = `Act: ${timeStr} ET`;
+          }
+        };
+
+        ['director', 'analyst', 'risk', 'broker'].forEach(updateCard);
+      } catch (err) {
+        console.error('Error fetching agents:', err);
       }
     }
 
@@ -556,8 +586,15 @@
 
     setInterval(updateClock, 1000);
     updateClock();
+
+    // Carga inicial y sondeos en tiempo real
     fetchStatus();
-    setInterval(fetchStatus, 15000);
+    fetchAgents();
+    fetchLogs();
+
+    setInterval(fetchStatus, 10000); // Actualizar métricas de cuenta cada 10s
+    setInterval(fetchAgents, 4000);  // Actualizar actividad del escuadrón cada 4s
+    setInterval(fetchLogs, 8000);    // Actualizar auditoría forense cada 8s
   </script>
 </body>
 </html>

@@ -3,6 +3,7 @@ import { mainKeyboard, tickerSelectorInline, createProposalKeyboard } from './ke
 import { AlpacaClient } from '../agents/alpaca_client';
 import { OpenCodeRunner } from '../agents/opencode_runner';
 import { auditLogger } from '../utils/audit';
+import { updateAgentActivity } from '../server/web_server';
 
 // Almacén en memoria de propuestas activas para interacción por botones
 interface StoredProposal {
@@ -95,9 +96,15 @@ export function setupTelegramBot(
   bot.action(/analyze_(.+)/, async (ctx) => {
     const symbol = ctx.match[1];
     await ctx.answerCbQuery();
+    updateAgentActivity('analyst', `[INVESTIGACIÓN] Analizando a fondo ${symbol} (múltiplos PER, Wall Street targets)`, 'ANALIZANDO');
+    updateAgentActivity('director', `[ESPERA] Aguardando tesis financiera de ${symbol} por parte del Analista`, 'EVALUANDO');
+
     await ctx.reply(`🧠 *Analista de Heka:* Iniciando investigación profunda de *${symbol}* con razonamiento avanzado (big-pickle)...\n⏳ Evaluando múltiplos PER, balances y sentimiento macro (aprox. 30-40 seg)...`, { parse_mode: 'Markdown' });
 
     const analysis = await opencode.analyzeTicker(symbol);
+
+    updateAgentActivity('analyst', `[COMPLETADO] Tesis para ${symbol} finalizada y entregada a Telegram`, 'ACTIVO');
+    updateAgentActivity('director', `[SUPERVISIÓN] Tesis de ${symbol} despachada al inversor`, 'ACTIVO');
 
     auditLogger.log({
       eventType: 'RESEARCH_COMPLETED',
@@ -110,10 +117,18 @@ export function setupTelegramBot(
 
   // 5. Botón táctil: 💡 Ver Nuevas Propuestas (Agentes Proactivos)
   bot.hears(['💡 Ver Nuevas Propuestas', '/propuestas'], async (ctx) => {
+    updateAgentActivity('analyst', `[ESCÁNER] Analizando universo de activos (S&P 500 y ETFs líderes)`, 'ESCANEANDO');
+    updateAgentActivity('risk', `[AUDITORÍA] Verificando que el capital libre supere el 50-60% obligatorio`, 'VERIFICANDO');
+    updateAgentActivity('director', `[COORDINACIÓN] Debatiendo con Analista y Riesgo para seleccionar propuesta`, 'DEBATIENDO');
+
     await ctx.reply('🔎 *Escuadrón Heka:* Iniciando escaneo profundo del mercado con *big-pickle* (200k tokens)...\n⏳ El Director y el Oficial de Riesgo están filtrando oportunidades asimétricas (aprox. 30-45 seg)...', { parse_mode: 'Markdown' });
     const positions = await alpaca.getPositions();
     const currentSymbols = positions.map((p) => p.symbol);
     const result = await opencode.scanForOpportunities(currentSymbols);
+
+    updateAgentActivity('director', `[LISTO] Oportunidad seleccionada y enviada a Telegram para decisión`, 'PROPONIENDO');
+    updateAgentActivity('risk', `[BLINDADO] Stop-loss estricto calculado y verificado`, 'BLINDADO');
+    updateAgentActivity('analyst', `[EN ESPERA] Escaneo concluido. Aguardando siguiente ciclo de mercado`, 'ACTIVO');
 
     // Guardar propuesta activa para interactividad
     const proposalId = `prop_${Date.now()}`;
