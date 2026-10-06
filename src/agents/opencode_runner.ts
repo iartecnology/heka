@@ -7,17 +7,17 @@ export class OpenCodeRunner {
   private model: string;
 
   constructor() {
-    this.model = process.env.OPENCODE_MODEL || 'opencode/big-pickle';
+    this.model = process.env.OPENCODE_MODEL || 'opencode/nemotron-3.5-lightning-free';
   }
 
   /**
-   * Ejecuta una consulta o tarea autónoma a través de OpenCode CLI usando big-pickle de forma gratuita.
+   * Ejecuta una consulta o tarea autónoma a través de OpenCode CLI de forma gratuita.
    */
   async runTask(prompt: string): Promise<string> {
     try {
       const sanitizedPrompt = prompt.replace(/"/g, '\\"');
       const command = `opencode run --model ${this.model} "${sanitizedPrompt}"`;
-      const { stdout } = await execPromise(command, { timeout: 120000 });
+      const { stdout } = await execPromise(command, { timeout: 60000 });
       return stdout.trim();
     } catch (error: any) {
       console.error('Error al ejecutar OpenCode:', error);
