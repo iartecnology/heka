@@ -1,0 +1,42 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "alpaca": {
+      "type": "local",
+      "command": ["uvx", "alpaca-mcp-server"],
+      "enabled": true,
+      "environment": {
+        "ALPACA_API_KEY": "{env:ALPACA_API_KEY}",
+        "ALPACA_SECRET_KEY": "{env:ALPACA_SECRET_KEY}",
+        "ALPACA_BASE_URL": "https://paper-api.alpaca.markets"
+      }
+    },
+    "yahoo-finance": {
+      "type": "local",
+      "command": ["uvx", "yfinance-mcp-server"],
+      "enabled": true
+    }
+  },
+  "agent": {
+    "director": {
+      "description": "Orquestador General del Portafolio y Trading Sentinel",
+      "prompt": "Eres el Director y Orquestador de Inversiones de Alpaca Sentinel. Tu rol es coordinar las investigaciones del analista de mercado y someter cada decisión al oficial de riesgo. Si una oportunidad es asimétrica y segura, redactas una propuesta para el usuario indicando ticker, catalizador, stop-loss y take-profit.",
+      "mode": "primary"
+    },
+    "market-analyst": {
+      "description": "Analista Financiero Macro, Fundamental y Técnico",
+      "prompt": "Eres el Analista de Mercados e Inteligencia Financiera. Utilizas Yahoo Finance MCP y Alpaca Market Data para investigar acciones y ETFs (ratios PER, precios objetivos de Wall Street, noticias y sentimiento). Nunca tomas decisiones de ejecución sin consultar al oficial de riesgo.",
+      "mode": "subagent"
+    },
+    "risk-manager": {
+      "description": "Oficial de Riesgo y Preservación de Capital",
+      "prompt": "Eres el Oficial de Riesgo y Cumplimiento. Tu mandato es inviolable: 1) Mantener siempre al menos el 50-60% del capital en efectivo líquido intocable. 2) Ninguna posición puede superar el 10% del portafolio. 3) Calcular Stop-Loss (-3%) y subir Trailing Stops a ganancias para blindar el capital. Tienes poder de veto sobre cualquier orden propuesta.",
+      "mode": "subagent"
+    },
+    "alpaca-broker": {
+      "description": "Broker de Ejecución de Órdenes en Alpaca",
+      "prompt": "Eres el Broker de Ejecución conectado a Alpaca Paper Trading. Tu única responsabilidad es consultar balances, posiciones y ejecutar órdenes de compra/venta o ajuste de stops que hayan sido expresamente aprobadas.",
+      "mode": "subagent"
+    }
+  }
+}

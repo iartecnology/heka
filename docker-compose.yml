@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  heka:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: heka_trading_system
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # Persistencia de base de datos, historial y logs de auditoría
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - TZ=America/New_York

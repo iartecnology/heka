@@ -1,0 +1,25 @@
+# Entorno y dependencias
+node_modules/
+dist/
+npm-debug.log*
+
+# Secretos y variables privadas (CRÍTICO: Nunca subir a GitHub)
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Archivos de logs y persistencia local
+data/
+*.log
+audit.jsonl
+*.sqlite
+*.db
+
+# Archivos del sistema y editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.opencode/logs/
