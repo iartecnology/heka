@@ -25,6 +25,7 @@ RUN npm install
 # Copiar configuración de OpenCode y código fuente
 COPY opencode.json ./
 COPY tsconfig.json ./
+COPY public ./public
 COPY src ./src
 
 # Compilar TypeScript a JavaScript
