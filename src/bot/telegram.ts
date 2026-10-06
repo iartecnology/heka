@@ -95,14 +95,14 @@ export function setupTelegramBot(
   bot.action(/analyze_(.+)/, async (ctx) => {
     const symbol = ctx.match[1];
     await ctx.answerCbQuery();
-    await ctx.reply(`🧠 *Analista de Heka (OpenCode / Big-Pickle):* Investigando fundamentales y sentimiento de *${symbol}*...`, { parse_mode: 'Markdown' });
+    await ctx.reply(`🧠 *Analista de Heka:* Iniciando investigación profunda de *${symbol}* con razonamiento avanzado (big-pickle)...\n⏳ Evaluando múltiplos PER, balances y sentimiento macro (aprox. 30-40 seg)...`, { parse_mode: 'Markdown' });
 
     const analysis = await opencode.analyzeTicker(symbol);
 
     auditLogger.log({
       eventType: 'RESEARCH_COMPLETED',
       actor: 'market_analyst',
-      details: `Análisis generado para ${symbol}`
+      details: `Análisis profundo generado para ${symbol}`
     });
 
     await ctx.reply(analysis, { parse_mode: 'Markdown' });
@@ -110,16 +110,16 @@ export function setupTelegramBot(
 
   // 5. Botón táctil: 💡 Ver Nuevas Propuestas (Agentes Proactivos)
   bot.hears(['💡 Ver Nuevas Propuestas', '/propuestas'], async (ctx) => {
-    await ctx.reply('🔎 *Heka:* Evaluando si el escáner detectó oportunidades asimétricas...', { parse_mode: 'Markdown' });
+    await ctx.reply('🔎 *Escuadrón Heka:* Iniciando escaneo profundo del mercado con *big-pickle* (200k tokens)...\n⏳ El Director y el Oficial de Riesgo están filtrando oportunidades asimétricas (aprox. 30-45 seg)...', { parse_mode: 'Markdown' });
     const positions = await alpaca.getPositions();
     const currentSymbols = positions.map((p) => p.symbol);
     const result = await opencode.scanForOpportunities(currentSymbols);
 
-    // Guardar una propuesta de prueba interactiva demostrativa
+    // Guardar propuesta activa para interactividad
     const proposalId = `prop_${Date.now()}`;
     activeProposals.set(proposalId, {
       id: proposalId,
-      symbol: 'SPY',
+      symbol: 'OPORTUNIDAD',
       qty: 1,
       type: 'buy',
       thesis: result
@@ -127,7 +127,7 @@ export function setupTelegramBot(
 
     await ctx.reply(result, { parse_mode: 'Markdown', ...mainKeyboard });
     await ctx.reply(
-      `🎯 *Acción Rápida:* ¿Deseas aprobar la recomendación de los agentes?`,
+      `🎯 *Acción del Inversor:* ¿Deseas aprobar la propuesta recomendada?`,
       createProposalKeyboard(proposalId)
     );
   });
