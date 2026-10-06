@@ -198,8 +198,27 @@
     .tag-risk { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
     .tag-order { background: rgba(16, 185, 129, 0.2); color: var(--success); }
     .tag-analyst { background: rgba(129, 140, 248, 0.2); color: var(--accent); }
-    .log-text { color: #e2e8f0; flex: 1; word-break: break-word; }
-  </style>
+    /* Media Queries para Dispositivos Móviles */
+    @media (max-width: 900px) {
+      body { padding: 12px; }
+      header { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .top-actions { width: 100%; justify-content: space-between; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .grid-4 { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .nav-tabs { overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 6px; }
+      .tab-btn { padding: 8px 14px; font-size: 12px; }
+      .card { padding: 14px; }
+      .card-title { font-size: 11px; margin-bottom: 12px; }
+      .brand h1 { font-size: 18px; }
+    }
+
+    @media (max-width: 480px) {
+      .grid-4 { grid-template-columns: 1fr; }
+      .metric-value { font-size: 22px !important; }
+      .fin-table th, .fin-table td { padding: 8px 6px; font-size: 11px; }
+      .agent-activity { font-size: 11px; padding: 6px 10px; }
+      .terminal-box { height: 350px; font-size: 11px; }
+    }
 </head>
 <body>
 
