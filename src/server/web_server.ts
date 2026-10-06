@@ -21,9 +21,23 @@ export function startWebServer(alpaca: AlpacaClient, port: number = 3000) {
           status: 'ok',
           marketOpen: clock.is_open,
           account,
+          positions,
           positionsCount: positions.length,
           timestamp: new Date().toISOString()
         }));
+      } catch (err: any) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'error', message: err.message }));
+      }
+      return;
+    }
+
+    // 1.1 API: Kill-Switch de Emergencia desde la Web
+    if (req.url === '/api/panic' && req.method === 'POST') {
+      try {
+        await alpaca.cancelAllOrders();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', message: 'Kill switch triggered' }));
       } catch (err: any) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'error', message: err.message }));

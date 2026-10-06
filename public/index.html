@@ -3,381 +3,528 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Heka Sentinel Pro - Panel de Control & Auditoría</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <title>Heka Console Pro - Sistema Multi-Agente Activo</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
-      --bg-dark: #0b0f19;
-      --card-bg: #121927;
-      --card-border: #1e293b;
+      --bg: #07090e;
+      --panel: #0d121d;
+      --card: #131b2e;
+      --border: #1e293b;
       --primary: #38bdf8;
+      --accent: #818cf8;
       --success: #10b981;
       --warning: #f59e0b;
       --danger: #ef4444;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
+      --text: #f8fafc;
+      --muted: #94a3b8;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Inter', sans-serif;
-      background: var(--bg-dark);
-      color: var(--text-main);
-      padding: 24px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 20px;
       min-height: 100vh;
     }
     header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 24px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 20px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
     }
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .brand h1 { font-size: 24px; font-weight: 700; color: #fff; }
-    .brand span {
-      background: rgba(56, 189, 248, 0.15);
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .brand h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+    .brand .tag {
+      background: rgba(56, 189, 248, 0.12);
       color: var(--primary);
       padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 600;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      border: 1px solid rgba(56, 189, 248, 0.25);
     }
-    .tabs {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 24px;
-    }
-    .tab-btn {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      color: var(--text-muted);
-      padding: 10px 20px;
+    .top-actions { display: flex; align-items: center; gap: 12px; }
+    .btn-panic {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid var(--danger);
+      color: var(--danger);
+      padding: 8px 14px;
       border-radius: 8px;
+      font-weight: 700;
+      font-size: 12px;
       cursor: pointer;
-      font-weight: 600;
       transition: all 0.2s;
     }
-    .tab-btn.active {
-      background: var(--primary);
-      color: #0b0f19;
-      border-color: var(--primary);
-    }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
+    .btn-panic:hover { background: var(--danger); color: #fff; }
 
-    /* Grid de Estado */
-    .status-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 16px;
-      margin-bottom: 24px;
+    /* Navegación */
+    .nav-tabs { display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+    .tab-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--muted);
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
     }
+    .tab-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.04); }
+    .tab-btn.active { background: var(--card); color: var(--primary); border-color: var(--border); }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* Grids */
+    .grid-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    
     .card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
+      background: var(--panel);
+      border: 1px solid var(--border);
       border-radius: 12px;
       padding: 20px;
     }
     .card-title {
-      font-size: 13px;
-      font-weight: 600;
+      font-size: 12px;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-muted);
-      margin-bottom: 12px;
+      letter-spacing: 0.8px;
+      color: var(--muted);
+      margin-bottom: 16px;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    .badge-status {
+
+    /* Agentes y Telemetría en Vivo */
+    .agent-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .agent-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .agent-name { font-weight: 700; font-size: 14px; }
+    .agent-status-badge {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 4px 10px;
+      padding: 3px 8px;
       border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--success);
+    }
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+    }
+    .agent-activity {
+      font-family: 'JetBrains Mono', monospace;
       font-size: 12px;
-      font-weight: 600;
-    }
-    .badge-online { background: rgba(16, 185, 129, 0.15); color: var(--success); }
-    .badge-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-
-    .agent-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    .agent-item:last-child { border-bottom: none; }
-    .agent-info h4 { font-size: 14px; font-weight: 600; }
-    .agent-info p { font-size: 12px; color: var(--text-muted); }
-
-    /* Tabla de Logs */
-    .log-filter {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-    .log-filter input, .log-filter select {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      color: #fff;
-      padding: 8px 14px;
+      color: var(--primary);
+      background: rgba(0, 0, 0, 0.35);
+      padding: 8px 12px;
       border-radius: 6px;
-      font-size: 13px;
+      border-left: 3px solid var(--primary);
+      margin-top: 6px;
     }
-    .log-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-    .log-table th {
-      background: rgba(255, 255, 255, 0.02);
+    .agent-meta { font-size: 11px; color: var(--muted); margin-top: 6px; }
+
+    /* Tablas Financieras */
+    .fin-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .fin-table th {
       text-align: left;
       padding: 12px;
-      color: var(--text-muted);
-      border-bottom: 1px solid var(--card-border);
-    }
-    .log-table td {
-      padding: 12px;
-      border-bottom: 1px solid var(--card-border);
-      vertical-align: top;
-    }
-    .pill {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 4px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
       font-size: 11px;
-      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
-    .pill-user { background: rgba(56, 189, 248, 0.2); color: var(--primary); }
-    .pill-risk { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
-    .pill-order { background: rgba(16, 185, 129, 0.2); color: var(--success); }
-    .pill-analyst { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
+    .fin-table td { padding: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+    .ticker-pill {
+      font-weight: 800;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .pl-green { color: var(--success); font-weight: 700; }
+    .pl-red { color: var(--danger); font-weight: 700; }
+
+    /* Chat & Auditoría */
+    .terminal-box {
+      background: #000;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      height: 480px;
+      overflow-y: auto;
+    }
+    .log-row {
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      display: flex;
+      gap: 12px;
+    }
+    .log-time { color: var(--muted); white-space: nowrap; }
+    .log-tag {
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      height: fit-content;
+    }
+    .tag-user { background: rgba(56, 189, 248, 0.2); color: var(--primary); }
+    .tag-risk { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+    .tag-order { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+    .tag-analyst { background: rgba(129, 140, 248, 0.2); color: var(--accent); }
+    .log-text { color: #e2e8f0; flex: 1; word-break: break-word; }
   </style>
 </head>
 <body>
 
   <header>
     <div class="brand">
-      <h1>🦅 HEKA SENTINEL</h1>
-      <span>SISTEMA MULTI-AGENTE ACTIVO</span>
+      <h1>🦅 HEKA CONSOLE PRO</h1>
+      <span class="tag">AUTONOMOUS SQUAD ENGINE</span>
     </div>
-    <div id="clock" style="font-size: 13px; color: var(--text-muted);">Cargando hora...</div>
+    <div class="top-actions">
+      <div id="clock" style="font-size: 13px; color: var(--muted); font-family: 'JetBrains Mono', monospace;">Cargando hora...</div>
+      <button class="btn-panic" onclick="triggerPanic()">🛑 KILL-SWITCH</button>
+    </div>
   </header>
 
-  <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('status')">📡 Estado de Servicios & Agentes</button>
-    <button class="tab-btn" onclick="switchTab('logs')">📜 Auditoría de Logs & Conversaciones</button>
+  <!-- Pestañas de Navegación -->
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="showTab('portfolio')">📊 Portafolio & Rendimiento</button>
+    <button class="tab-btn" onclick="showTab('agents')">🧠 Actividad de los Agentes (En Vivo)</button>
+    <button class="tab-btn" onclick="showTab('logs')">📜 Auditoría Forense & Logs</button>
   </div>
 
-  <!-- TAB 1: ESTADO -->
-  <div id="tab-status" class="tab-content active">
-    <div class="status-grid">
+  <!-- PESTAÑA 1: PORTAFOLIO Y RENDIMIENTO -->
+  <div id="tab-portfolio" class="tab-pane active">
+    <!-- Métricas Superiores -->
+    <div class="grid-4">
+      <div class="card">
+        <div class="card-title">Valor Total (Equity)</div>
+        <div style="font-size: 26px; font-weight: 800; color: #fff;" id="metric-equity">$--- USD</div>
+        <div style="font-size: 12px; color: var(--success); margin-top: 4px;">🟢 Cuenta Operativa en Alpaca</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Efectivo Líquido (Cash)</div>
+        <div style="font-size: 26px; font-weight: 800; color: #fff;" id="metric-cash">$--- USD</div>
+        <div style="font-size: 12px; color: var(--muted); margin-top: 4px;" id="metric-cash-pct">>66% Reservado</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Beneficio Total Flotante</div>
+        <div style="font-size: 26px; font-weight: 800; color: var(--success);" id="metric-floating-pl">+$--- USD</div>
+        <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">7 Posiciones Protegidas</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Poder de Compra (Buying Power)</div>
+        <div style="font-size: 26px; font-weight: 800; color: #fff;" id="metric-buying-power">$--- USD</div>
+        <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">Margen Disponible</div>
+      </div>
+    </div>
+
+    <!-- Gráfico y Tabla -->
+    <div class="grid-2">
+      <!-- Tabla de Posiciones Vivas -->
+      <div class="card">
+        <div class="card-title">
+          <span>Posiciones Abiertas en Cartera (Alpaca Real-Time)</span>
+          <span style="font-size: 11px; color: var(--primary);" id="positions-count">7 Activos</span>
+        </div>
+        <div style="overflow-x: auto;">
+          <table class="fin-table">
+            <thead>
+              <tr>
+                <th>Ticker</th>
+                <th>Cantidad</th>
+                <th>Entrada</th>
+                <th>Actual</th>
+                <th>Valor de Mercado</th>
+                <th>P&L Flotante</th>
+              </tr>
+            </thead>
+            <tbody id="positions-tbody">
+              <tr><td colspan="6" style="text-align:center; color:var(--muted);">Consultando broker...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Distribución de Capital -->
+      <div class="card">
+        <div class="card-title">Distribución de Capital</div>
+        <div style="height: 220px; position: relative;">
+          <canvas id="allocationChart"></canvas>
+        </div>
+        <div style="text-align: center; margin-top: 14px; font-size: 12px; color: var(--muted);">
+          Blindaje: <strong style="color: #fff;">Regla del 50-60% de Liquidez Intocable</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PESTAÑA 2: ACTIVIDAD DE LOS AGENTES EN VIVO -->
+  <div id="tab-agents" class="tab-pane">
+    <div class="grid-2">
       
-      <!-- Servicios Externos -->
-      <div class="card">
-        <div class="card-title">Conectores & Servicios</div>
-        
-        <div class="agent-item">
-          <div class="agent-info">
-            <h4>Telegram Bot Gateway</h4>
-            <p>Canal de chat interactivo y botones</p>
-          </div>
-          <span class="badge-status badge-online"><span class="badge-dot"></span> EN LÍNEA</span>
-        </div>
-
-        <div class="agent-item">
-          <div class="agent-info">
-            <h4>Alpaca Trading API</h4>
-            <p>Paper Trading Broker</p>
-          </div>
-          <span id="alpaca-status" class="badge-status badge-online"><span class="badge-dot"></span> CONECTADO</span>
-        </div>
-
-        <div class="agent-item">
-          <div class="agent-info">
-            <h4>Yahoo Finance MCP</h4>
-            <p>yfinance-mcp-server (Fundamentales)</p>
-          </div>
-          <span class="badge-status badge-online"><span class="badge-dot"></span> DISPONIBLE</span>
-        </div>
-
-        <div class="agent-item">
-          <div class="agent-info">
-            <h4>OpenCode CLI Engine</h4>
-            <p>Modelo: opencode/big-pickle (200k)</p>
-          </div>
-          <span class="badge-status badge-online"><span class="badge-dot"></span> ACTIVO</span>
-        </div>
-      </div>
-
       <!-- Squad de Agentes -->
-      <div class="card">
-        <div class="card-title">Squad de Agentes Especializados</div>
-        
-        <div class="agent-item">
-          <div class="agent-info">
-            <h4>Director de Inversión</h4>
-            <p>Orquestador y evaluador de consenso</p>
-          </div>
-          <span class="badge-status badge-online"><span class="badge-dot"></span> VIGILANDO</span>
-        </div>
+      <div>
+        <div class="card" style="margin-bottom: 16px;">
+          <div class="card-title">Squad de Agentes Activos (Proceso Autónomo)</div>
 
-        <div class="agent-item">
-          <div class="agent-info">
-            <h4>Analista de Mercado & Macro</h4>
-            <p>Escaneo continuo y análisis asimétrico</p>
+          <!-- Director -->
+          <div class="agent-card">
+            <div class="agent-header">
+              <span class="agent-name">👑 Agente Director / Orquestador</span>
+              <span class="agent-status-badge"><span class="pulse-dot"></span> ACTIVO</span>
+            </div>
+            <div class="agent-activity" id="director-activity">
+              [VIGILANCIA] Evaluando consenso entre Analista y Riesgo. Modo activo en espera de señales asimétricas.
+            </div>
+            <div class="agent-meta">Motor: OpenCode CLI (opencode/big-pickle) | Ciclo: 15 min</div>
           </div>
-          <span class="badge-status badge-online"><span class="badge-dot"></span> ESCANEANDO</span>
-        </div>
 
-        <div class="agent-item">
-          <div class="agent-info">
-            <h4>Oficial de Riesgo (Risk Guard)</h4>
-            <p>Trailing stops y piso de liquidez &gt;50%</p>
+          <!-- Analista -->
+          <div class="agent-card">
+            <div class="agent-header">
+              <span class="agent-name">🔍 Analista de Mercado & Macro</span>
+              <span class="agent-status-badge"><span class="pulse-dot"></span> ESCANEANDO</span>
+            </div>
+            <div class="agent-activity" id="analyst-activity">
+              [YAHOO FINANCE & ALPACA] Escaneando múltiplos P/E, precios objetivos de Wall Street y titulares de la FED.
+            </div>
+            <div class="agent-meta">Fuentes: yfinance-mcp-server, alpaca-mcp-server, news API</div>
           </div>
-          <span class="badge-status badge-online"><span class="badge-dot"></span> BLINDADO</span>
-        </div>
 
-        <div class="agent-item">
-          <div class="agent-info">
-            <h4>Broker de Ejecución</h4>
-            <p>Ejecución asistida bajo confirmación</p>
+          <!-- Oficial de Riesgo -->
+          <div class="agent-card">
+            <div class="agent-header">
+              <span class="agent-name">🛡️ Oficial de Riesgo (Risk Guard)</span>
+              <span class="agent-status-badge"><span class="pulse-dot"></span> BLINDADO</span>
+            </div>
+            <div class="agent-activity" id="risk-activity">
+              [RADAR DE RIESGO] Trailing stops de MSFT fijado en $520.00 | SPY en Breakeven | Efectivo en caja >66%.
+            </div>
+            <div class="agent-meta">Reglas: Max Drawdown 2.0% diario | Poder de veto activo</div>
           </div>
-          <span class="badge-status badge-online"><span class="badge-dot"></span> EN ESPERA</span>
+
+          <!-- Broker -->
+          <div class="agent-card">
+            <div class="agent-header">
+              <span class="agent-name">⚡ Broker de Ejecución Alpaca</span>
+              <span class="agent-status-badge"><span class="pulse-dot"></span> EN ESPERA</span>
+            </div>
+            <div class="agent-activity" id="broker-activity">
+              [ALPACAPAPER API] Conexión establecida. 0 órdenes pendientes. Modo Human-in-the-Loop activo.
+            </div>
+            <div class="agent-meta">Trading API v2 | Confirmación requerida vía Telegram</div>
+          </div>
+
         </div>
       </div>
 
-      <!-- Resumen de Capital -->
+      <!-- Monitor de Telemetría -->
       <div class="card">
-        <div class="card-title">Métricas de Portafolio en Vivo</div>
-        <div style="margin-top: 8px;">
-          <div style="font-size: 28px; font-weight: 700; color: #fff;" id="metric-equity">$--- USD</div>
-          <div style="font-size: 13px; color: var(--success); margin-top: 4px;">🟢 Cuenta Operativa en Alpaca</div>
+        <div class="card-title">Telemetría de Tareas del Escuadrón</div>
+        <div style="font-size: 13px; line-height: 1.8; color: var(--muted);">
+          <div>• <strong>Horario Wall Street:</strong> 09:30 AM - 04:00 PM ET</div>
+          <div>• <strong>Próximo Pre-Market Briefing:</strong> 08:45 AM ET</div>
+          <div>• <strong>Heartbeat Activo:</strong> Cada 15 minutos en sesión continua</div>
+          <div>• <strong>Modelo LLM en uso:</strong> <code style="color: var(--primary);">opencode/big-pickle</code> (Costo $0 USD)</div>
+          <div>• <strong>Context Window:</strong> 200,000 tokens</div>
+          <div>• <strong>Canal de interacción:</strong> Telegram (@Heka_iarBot)</div>
         </div>
-        <div style="margin-top: 20px; font-size: 13px; color: var(--text-muted); line-height: 1.8;">
-          <div>Efectivo Líquido: <strong id="metric-cash" style="color: #fff;">$---</strong></div>
-          <div>Posiciones Vivas: <strong id="metric-positions" style="color: #fff;">-</strong></div>
-          <div>Zona Horaria: <strong style="color: #fff;">New York (Wall Street)</strong></div>
+
+        <div style="margin-top: 24px; padding: 16px; background: rgba(56, 189, 248, 0.06); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px;">
+          <h4 style="font-size: 13px; color: var(--primary); margin-bottom: 6px;">💡 Filosofía Autónoma Activa</h4>
+          <p style="font-size: 12px; color: var(--muted); line-height: 1.6;">
+            Los agentes no duermen tras cada mensaje. El analista y el de riesgo exploran el mercado de forma continua. Cuando encuentran una compra asimétrica, te enviarán una notificación con botones táctiles directamente a tu Telegram.
+          </p>
         </div>
       </div>
 
     </div>
   </div>
 
-  <!-- TAB 2: LOGS -->
-  <div id="tab-logs" class="tab-content">
+  <!-- PESTAÑA 3: AUDITORÍA Y LOGS -->
+  <div id="tab-logs" class="tab-pane">
     <div class="card">
       <div class="card-title">
-        <span>Bitácora de Auditoría & Trazabilidad de Chat</span>
-        <button onclick="fetchLogs()" style="background:none; border:none; color:var(--primary); cursor:pointer; font-size:12px;">🔄 Actualizar</button>
+        <span>Bitácora de Auditoría Forense & Historial de Chat</span>
+        <button onclick="fetchLogs()" style="background:none; border:none; color:var(--primary); cursor:pointer; font-size:12px; font-weight:700;">🔄 Actualizar</button>
       </div>
 
-      <div class="log-filter">
-        <input type="text" id="log-search" placeholder="Filtrar por ticker o texto..." oninput="filterLogs()">
-      </div>
-
-      <div style="overflow-x: auto;">
-        <table class="log-table">
-          <thead>
-            <tr>
-              <th>Hora (UTC)</th>
-              <th>Tipo de Evento</th>
-              <th>Agente / Actor</th>
-              <th>Detalle & Justificación</th>
-            </tr>
-          </thead>
-          <tbody id="logs-tbody">
-            <tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Cargando registros...</td></tr>
-          </tbody>
-        </table>
+      <div class="terminal-box" id="logs-container">
+        Cargando eventos...
       </div>
     </div>
   </div>
 
   <script>
-    let allLogs = [];
+    let allocationChart = null;
 
-    function switchTab(tab) {
+    function showTab(tabId) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      if (tab === 'status') {
-        document.querySelectorAll('.tab-btn')[0].classList.add('active');
-        document.getElementById('tab-status').classList.add('active');
-      } else {
-        document.querySelectorAll('.tab-btn')[1].classList.add('active');
-        document.getElementById('tab-logs').classList.add('active');
-        fetchLogs();
-      }
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('tab-' + tabId).classList.add('active');
+      if (tabId === 'logs') fetchLogs();
     }
 
     async function fetchStatus() {
       try {
         const res = await fetch('/api/status');
         const data = await res.json();
+        
         if (data.account) {
-          document.getElementById('metric-equity').innerText = `$${parseFloat(data.account.equity).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD`;
-          document.getElementById('metric-cash').innerText = `$${parseFloat(data.account.cash).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD`;
-          document.getElementById('metric-positions').innerText = data.positionsCount;
+          const equity = parseFloat(data.account.equity);
+          const cash = parseFloat(data.account.cash);
+          const invested = equity - cash;
+          const cashPct = ((cash / equity) * 100).toFixed(1);
+
+          document.getElementById('metric-equity').innerText = `$${equity.toLocaleString('en-US', { minimumFractionDigits: 2 })} USD`;
+          document.getElementById('metric-cash').innerText = `$${cash.toLocaleString('en-US', { minimumFractionDigits: 2 })} USD`;
+          document.getElementById('metric-cash-pct').innerText = `${cashPct}% Reservado en Caja`;
+          document.getElementById('metric-buying-power').innerText = `$${parseFloat(data.account.buying_power).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD`;
+
+          // Renderizar tabla de posiciones
+          renderPositions(data.positions || []);
+          renderChart(cash, invested);
         }
-      } catch (e) {
-        console.error('Error fetching status:', e);
+      } catch (err) {
+        console.error('Error fetching status:', err);
       }
+    }
+
+    function renderPositions(positions) {
+      const tbody = document.getElementById('positions-tbody');
+      document.getElementById('positions-count').innerText = `${positions.length} Activos Abiertos`;
+      
+      let totalFloatingPl = 0;
+
+      if (!positions || positions.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--muted);">No hay posiciones abiertas actualmente.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = positions.map(p => {
+        const pl = parseFloat(p.unrealized_pl);
+        totalFloatingPl += pl;
+        const plPct = (parseFloat(p.unrealized_plpc) * 100).toFixed(2);
+        const plClass = pl >= 0 ? 'pl-green' : 'pl-red';
+        const plSign = pl >= 0 ? '+' : '';
+
+        return `<tr>
+          <td><span class="ticker-pill">${p.symbol}</span></td>
+          <td>${p.qty}</td>
+          <td>$${parseFloat(p.avg_entry_price).toFixed(2)}</td>
+          <td><strong>$${parseFloat(p.current_price).toFixed(2)}</strong></td>
+          <td>$${parseFloat(p.market_value).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+          <td class="${plClass}">${plSign}$${pl.toFixed(2)} (${plSign}${plPct}%)</td>
+        </tr>`;
+      }).join('');
+
+      const sign = totalFloatingPl >= 0 ? '+' : '';
+      document.getElementById('metric-floating-pl').innerText = `${sign}$${totalFloatingPl.toFixed(2)} USD`;
+    }
+
+    function renderChart(cash, invested) {
+      const ctx = document.getElementById('allocationChart').getContext('2d');
+      if (allocationChart) {
+        allocationChart.data.datasets[0].data = [cash, invested];
+        allocationChart.update();
+        return;
+      }
+
+      allocationChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Efectivo Intocable', 'Capital Invertido'],
+          datasets: [{
+            data: [cash, invested],
+            backgroundColor: ['#10b981', '#38bdf8'],
+            borderColor: '#0d121d',
+            borderWidth: 3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: '#94a3b8', font: { size: 11, family: 'Plus Jakarta Sans' } }
+            }
+          }
+        }
+      });
     }
 
     async function fetchLogs() {
       try {
         const res = await fetch('/api/logs');
-        allLogs = await res.json();
-        renderLogs(allLogs);
+        const logs = await res.json();
+        const container = document.getElementById('logs-container');
+
+        if (!logs || logs.length === 0) {
+          container.innerHTML = `<div style="color:var(--muted); text-align:center; padding:20px;">No hay eventos registrados aún.</div>`;
+          return;
+        }
+
+        container.innerHTML = logs.map(l => {
+          let tagClass = 'tag-user';
+          if (l.eventType === 'ORDER_EXECUTED') tagClass = 'tag-order';
+          if (l.eventType === 'RISK_VALIDATION') tagClass = 'tag-risk';
+          if (l.eventType === 'RESEARCH_COMPLETED') tagClass = 'tag-analyst';
+
+          const time = new Date(l.timestamp).toLocaleTimeString() + ' ' + new Date(l.timestamp).toLocaleDateString();
+
+          return `<div class="log-row">
+            <span class="log-time">[${time}]</span>
+            <span class="log-tag ${tagClass}">${l.eventType}</span>
+            <span style="font-weight:700; color:var(--primary);">&lt;${l.actor}&gt;</span>
+            <span class="log-text">${l.details}</span>
+          </div>`;
+        }).join('');
       } catch (e) {
         console.error('Error fetching logs:', e);
       }
     }
 
-    function renderLogs(logs) {
-      const tbody = document.getElementById('logs-tbody');
-      if (logs.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">No hay eventos registrados aún.</td></tr>`;
-        return;
+    async function triggerPanic() {
+      if (confirm('¿Estás seguro de accionar el Kill-Switch de Emergencia? Se cancelarán todas las órdenes en Alpaca.')) {
+        await fetch('/api/panic', { method: 'POST' });
+        alert('Kill-Switch accionado. Operaciones detenidas.');
       }
-
-      tbody.innerHTML = logs.map(l => {
-        let pillClass = 'pill-user';
-        if (l.eventType === 'ORDER_EXECUTED') pillClass = 'pill-order';
-        if (l.eventType === 'RISK_VALIDATION') pillClass = 'pill-risk';
-        if (l.eventType === 'RESEARCH_COMPLETED') pillClass = 'pill-analyst';
-
-        const time = new Date(l.timestamp).toLocaleTimeString() + ' ' + new Date(l.timestamp).toLocaleDateString();
-
-        return `<tr>
-          <td style="color:var(--text-muted); font-size:11px; white-space:nowrap;">${time}</td>
-          <td><span class="pill ${pillClass}">${l.eventType}</span></td>
-          <td><strong>${l.actor}</strong></td>
-          <td>${l.details}</td>
-        </tr>`;
-      }).join('');
-    }
-
-    function filterLogs() {
-      const q = document.getElementById('log-search').value.toLowerCase();
-      const filtered = allLogs.filter(l => 
-        l.details.toLowerCase().includes(q) || 
-        l.eventType.toLowerCase().includes(q) || 
-        l.actor.toLowerCase().includes(q)
-      );
-      renderLogs(filtered);
     }
 
     function updateClock() {
       const now = new Date();
-      document.getElementById('clock').innerText = now.toLocaleString('es-ES', { timeZone: 'America/New_York' }) + ' (New York)';
+      document.getElementById('clock').innerText = now.toLocaleString('es-ES', { timeZone: 'America/New_York' }) + ' (Wall Street)';
     }
 
     setInterval(updateClock, 1000);
