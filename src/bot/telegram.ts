@@ -1,4 +1,4 @@
-import { Telegraf, Context } from 'telegraf';
+import { Telegraf, Context, Markup } from 'telegraf';
 import { mainKeyboard, tickerSelectorInline, createProposalKeyboard } from './keyboards';
 import { AlpacaClient } from '../agents/alpaca_client';
 import { OpenCodeRunner } from '../agents/opencode_runner';
@@ -50,26 +50,36 @@ export function setupTelegramBot(
     );
   });
 
-  // 3. Botón táctil: 📊 Ver Resumen Cartera
-  bot.hears(['📊 Ver Resumen Cartera', '/resumen'], async (ctx) => {
+  // 3. Botón táctil: 📊 Mi Portafolio (o antiguo Ver Resumen Cartera)
+  bot.hears(['📊 Mi Portafolio', '📊 Ver Resumen Cartera', '/resumen', '/portafolio'], async (ctx) => {
     try {
-      await ctx.reply('⏳ *Heka:* Consultando balance y posiciones en tiempo real con Alpaca...', { parse_mode: 'Markdown' });
+      await ctx.reply('⏳ *Consultando tu portafolio en tiempo real con Alpaca...*', { parse_mode: 'Markdown' });
       const account = await alpaca.getAccount();
       const positions = await alpaca.getPositions();
 
-      let msg = `📊 *ESTADO CONSOLIDADO DEL PORTAFOLIO*\n\n`;
-      msg += `💰 *Equity Total:* $${parseFloat(account.equity).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD\n`;
-      msg += `💵 *Efectivo en Caja:* $${parseFloat(account.cash).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD\n`;
-      msg += `📦 *Posiciones Activas:* ${positions.length}\n\n`;
+      // Calcular Beneficio Total Flotante sumando unrealized_pl de todas las posiciones
+      const totalFloatingPL = positions.reduce((acc, p) => acc + (parseFloat(p.unrealized_pl) || 0), 0);
+      const plIcon = totalFloatingPL >= 0 ? '🟢' : '🔴';
+      const plSign = totalFloatingPL >= 0 ? '+' : '-';
+      const plFormatted = `${plSign}$${Math.abs(totalFloatingPL).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+
+      let msg = `💼 *RESUMEN DE TU CUENTA Y PORTAFOLIO*\n\n`;
+      msg += `💰 *Valor Total de la Cuenta:* $${parseFloat(account.equity).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD\n`;
+      msg += `💵 *Efectivo Disponible:* $${parseFloat(account.cash).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD\n`;
+      msg += `${plIcon} *Beneficio Total Flotante:* ${plFormatted}\n`;
+      msg += `🛡️ *${positions.length} Posiciones Protegidas*\n\n`;
 
       if (positions.length > 0) {
-        msg += `*Detalle de Activos:*\n`;
+        msg += `📋 *Detalle de Posiciones Protegidas:*\n`;
         positions.forEach((p) => {
           const pl = parseFloat(p.unrealized_pl);
           const icon = pl >= 0 ? '🟢' : '🔴';
-          const plFormatted = pl >= 0 ? `+$${pl.toFixed(2)}` : `-$${Math.abs(pl).toFixed(2)}`;
-          msg += `${icon} *${p.symbol}:* ${p.qty} acc @ $${parseFloat(p.current_price).toFixed(2)} | P&L: ${plFormatted}\n`;
+          const posSign = pl >= 0 ? '+' : '-';
+          const posPlFormatted = `${posSign}$${Math.abs(pl).toFixed(2)}`;
+          msg += `${icon} *${p.symbol}:* ${p.qty} unidades @ $${parseFloat(p.current_price).toFixed(2)} | Rendimiento: ${posPlFormatted}\n`;
         });
+      } else {
+        msg += `_No tienes posiciones abiertas en este momento._\n`;
       }
 
       auditLogger.log({
@@ -80,15 +90,15 @@ export function setupTelegramBot(
 
       await ctx.reply(msg, { parse_mode: 'Markdown', ...mainKeyboard });
     } catch (err: any) {
-      await ctx.reply(`❌ Error al consultar Alpaca: ${err.message}`);
+      await ctx.reply(`❌ No pudimos consultar tu portafolio: ${err.message}`);
     }
   });
 
-  // 4. Botón táctil: 🔍 Analizar Ticker
-  bot.hears(['🔍 Analizar Ticker', '/analizar'], async (ctx) => {
+  // 4. Botón táctil: 🔍 Consultar una Acción/Cripto (o antiguo Analizar Ticker)
+  bot.hears(['🔍 Consultar una Acción/Cripto', '🔍 Analizar Ticker', '/analizar', '/consultar'], async (ctx) => {
     await ctx.reply(
-      '¿Qué activo deseas que el Agente Analista investigue con Yahoo Finance y Alpaca Data?',
-      tickerSelectorInline
+      '👇 *Selecciona o escribe el activo que deseas consultar:*',
+      { parse_mode: 'Markdown', ...tickerSelectorInline }
     );
   });
 
@@ -96,18 +106,36 @@ export function setupTelegramBot(
   bot.action(/analyze_(.+)/, async (ctx) => {
     const symbol = ctx.match[1];
     try {
-      await ctx.answerCbQuery(`Analizando ${symbol}...`);
+      await ctx.answerCbQuery(`Consultando ${symbol}...`);
     } catch (e) {
       // Ignorar si el callback expiró en Telegram
     }
 
-    updateAgentActivity('analyst', `[INVESTIGACIÓN] Analizando a fondo ${symbol} con Yahoo Finance y Alpaca Data`, 'ANALIZANDO');
-    updateAgentActivity('director', `[ESPERA] Aguardando tesis financiera de ${symbol} por parte del Analista`, 'EVALUANDO');
+    updateAgentActivity('analyst', `[INVESTIGACIÓN] Analizando a fondo ${symbol} en tiempo real`, 'ANALIZANDO');
+    updateAgentActivity('director', `[ESPERA] Evaluando tesis financiera de ${symbol}`, 'EVALUANDO');
 
-    await ctx.reply(`🧠 *Analista de Heka:* Investigando en tiempo real *${symbol}*...\n⏳ Consultando múltiplos fundamentales, PER, balance y sentimiento macro...`, { parse_mode: 'Markdown' });
+    await ctx.reply(`🔍 *Paso 1/3:* Conectando con los mercados para obtener precios y datos de *${symbol}*...`, { parse_mode: 'Markdown' });
 
     try {
-      const analysis = await opencode.analyzeTicker(symbol);
+      let liveInfo = '';
+      if (symbol.includes('/')) {
+        const crypto = await alpaca.getLatestCryptoPrice(symbol);
+        if (crypto) {
+          liveInfo = `Precio actual: $${crypto.price.toLocaleString('en-US')} USD | Máximo hoy: $${crypto.high.toLocaleString('en-US')} | Mínimo hoy: $${crypto.low.toLocaleString('en-US')}`;
+        }
+      }
+
+      await ctx.reply(`🧠 *Paso 2/3:* Nuestro equipo de analistas y gestión de riesgo está evaluando fundamentales y tendencias de *${symbol}*...`, { parse_mode: 'Markdown' });
+
+      const analysisPrompt = `Actúa como el Escuadrón Heka. Analiza el activo ${symbol} para un inversor. ` +
+        (liveInfo ? `Datos en vivo: ${liveInfo}. ` : '') +
+        `Estructura la respuesta de forma muy clara, limpia y fácil de entender:\n` +
+        `📌 **1. Situación Actual y Precio** (En qué punto está ahora mismo)\n` +
+        `📈 **2. Oportunidad y Tendencia** (Hacia dónde apunta y qué potencial tiene)\n` +
+        `🛡️ **3. Recomendación de Riesgo** (Cuánto invertir como máximo y precio de protección Stop-Loss)\n` +
+        `✅ **4. Conclusión directa** (Comprar con cautela / Esperar / Tomar ganancias).`;
+
+      const analysis = await opencode.runDeepTask(analysisPrompt);
 
       updateAgentActivity('analyst', `[COMPLETADO] Tesis para ${symbol} finalizada y entregada a Telegram`, 'ACTIVO');
       updateAgentActivity('director', `[SUPERVISIÓN] Tesis de ${symbol} despachada al inversor`, 'ACTIVO');
@@ -116,40 +144,52 @@ export function setupTelegramBot(
         eventType: 'RESEARCH_COMPLETED',
         actor: 'market_analyst',
         level: 'INFO',
-        details: `Análisis profundo generado para ${symbol}`
+        details: `Análisis generado para ${symbol}`
       });
 
-      try {
-        await ctx.reply(analysis, { parse_mode: 'Markdown' });
-      } catch (err) {
-        // En caso de que el markdown contenga caracteres conflictivos
-        await ctx.reply(analysis);
-      }
+      await ctx.reply(`🏁 *Paso 3/3: Análisis completado.*\n\n${analysis}`, { parse_mode: 'Markdown', ...mainKeyboard });
     } catch (error: any) {
-      await ctx.reply(`❌ Error durante el análisis de ${symbol}: ${error.message}`);
+      await ctx.reply(`❌ Ocurrió un inconveniente al analizar ${symbol}: ${error.message}`);
     }
   });
 
-  // 5. Botón táctil: 💡 Ver Nuevas Propuestas (Agentes Proactivos)
-  bot.hears(['💡 Ver Nuevas Propuestas', '/propuestas'], async (ctx) => {
-    updateAgentActivity('analyst', `[ESCÁNER] Analizando universo de activos (S&P 500 y ETFs líderes)`, 'ESCANEANDO');
-    updateAgentActivity('risk', `[AUDITORÍA] Verificando que el capital libre supere el 50-60% obligatorio`, 'VERIFICANDO');
-    updateAgentActivity('director', `[COORDINACIÓN] Debatiendo con Analista y Riesgo para seleccionar propuesta`, 'DEBATIENDO');
+  // 5. Botón táctil: 💡 Sugerencias de Inversión (o antiguo Ver Nuevas Propuestas)
+  bot.hears(['💡 Sugerencias de Inversión', '💡 Ver Nuevas Propuestas', '/propuestas', '/sugerencias'], async (ctx) => {
+    updateAgentActivity('analyst', `[ESCÁNER] Analizando universo de activos para sugerencias`, 'ESCANEANDO');
+    updateAgentActivity('risk', `[AUDITORÍA] Verificando liquidez y control de riesgo`, 'VERIFICANDO');
+    updateAgentActivity('director', `[COORDINACIÓN] Seleccionando la mejor sugerencia para el inversor`, 'DEBATIENDO');
 
-    await ctx.reply('🔎 *Escuadrón Heka:* Iniciando escaneo del mercado con *nemotron-3.5-lightning*...\n⏳ Evaluando fundamentales de S&P 500 y ETFs líderes con oficiales de riesgo...', { parse_mode: 'Markdown' });
+    await ctx.reply('🔎 *Paso 1/2:* Escaneando oportunidades destacadas en el mercado (S&P 500, ETFs y Cripto)...', { parse_mode: 'Markdown' });
     const positions = await alpaca.getPositions();
     const currentSymbols = positions.map((p) => p.symbol);
-    const result = await opencode.scanForOpportunities(currentSymbols);
 
-    updateAgentActivity('director', `[LISTO] Oportunidad seleccionada y enviada a Telegram para decisión`, 'PROPONIENDO');
-    updateAgentActivity('risk', `[BLINDADO] Stop-loss estricto calculado y verificado`, 'BLINDADO');
-    updateAgentActivity('analyst', `[EN ESPERA] Escaneo concluido. Aguardando siguiente ciclo de mercado`, 'ACTIVO');
+    await ctx.reply('⚖️ *Paso 2/2:* El Oficial de Riesgo está calculando los niveles de seguridad y relación beneficio/riesgo...', { parse_mode: 'Markdown' });
 
-    // Guardar propuesta activa para interactividad
+    const scanPrompt = `Actúa como el Escuadrón de Inversiones Heka (Director, Analista y Riesgo). ` +
+      `Actualmente tenemos en cartera: ${currentSymbols.length > 0 ? currentSymbols.join(', ') : 'Ninguno (100% liquidez)'}. ` +
+      `Genera una SUGERENCIA CLARA DE INVERSIÓN para hoy con excelente relación riesgo/beneficio. ` +
+      `Debes formatear la sugerencia SIGUIENDO ESTRICTAMENTE ESTE MODELO EXACTO, limpio y sin caracteres de LaTeX tipo signos de dólar escapados:\n\n` +
+      `⭐ **[Ticker] — [Nombre de Empresa] ([Atributo Clave])**\n` +
+      `🏢 **Sector:** [Sector / Industria]\n` +
+      `💵 **Precio actual:** $[precio actual] USD\n` +
+      `💡 **¿Por qué comprar?:** [Explicación clara y contundente en 2 frases de por qué es una excelente oportunidad]\n\n` +
+      `🎯 **Plan de Operación:**\n` +
+      `📥 **Entrada Límite:** $[precio] USD ([N] acciones ≈ $[Monto Total] USD)\n` +
+      `🟢 **Take-Profit (Ganancia):** $[precio] USD (+[%]% → +$[ganancia estimada] USD)\n` +
+      `🛑 **Stop-Loss (Protección):** $[precio] USD (-[%]% → -$[riesgo estimado] USD)\n` +
+      `⚖️ **Ratio Beneficio / Riesgo:** 1 : [Ratio calculado, ej. 2.25] 🚀\n\n` +
+      `Calcula las acciones y montos asumiendo un tamaño prudente de posición de ~$3,000 - $5,000 USD. No agregues texto introductorio innecesario antes del título.`;
+
+    const result = await opencode.runDeepTask(scanPrompt);
+
+    updateAgentActivity('director', `[LISTO] Sugerencia enviada a Telegram`, 'PROPONIENDO');
+    updateAgentActivity('risk', `[BLINDADO] Niveles de seguridad validados`, 'BLINDADO');
+    updateAgentActivity('analyst', `[EN ESPERA] Escaneo concluido`, 'ACTIVO');
+
     const proposalId = `prop_${Date.now()}`;
     activeProposals.set(proposalId, {
       id: proposalId,
-      symbol: 'OPORTUNIDAD',
+      symbol: 'SUGERENCIA',
       qty: 1,
       type: 'buy',
       thesis: result
@@ -159,7 +199,7 @@ export function setupTelegramBot(
       eventType: 'ORDER_PROPOSAL',
       actor: 'director',
       level: 'INFO',
-      details: 'Nueva propuesta asimétrica evaluada y sometida a aprobación en Telegram'
+      details: 'Sugerencia de inversión estructurada enviada a Telegram'
     });
 
     try {
@@ -168,7 +208,7 @@ export function setupTelegramBot(
       await ctx.reply(result, mainKeyboard);
     }
     await ctx.reply(
-      `🎯 *Acción del Inversor:* ¿Deseas aprobar la propuesta recomendada?`,
+      `🎯 *Acciones sugeridas:* ¿Deseas aprobar esta operación o prefieres ver más detalles?`,
       createProposalKeyboard(proposalId)
     );
   });
@@ -180,33 +220,30 @@ export function setupTelegramBot(
     const proposal = activeProposals.get(proposalId);
 
     if (!proposal) {
-      await ctx.editMessageText('⚠️ Esta propuesta ya ha expirado o fue procesada.');
+      await ctx.editMessageText('⚠️ Esta sugerencia ya fue procesada o expiró.');
       return;
     }
 
     try {
-      // Notificar al broker
       auditLogger.log({
         eventType: 'ORDER_EXECUTED',
         actor: 'alpaca_broker',
         level: 'SUCCESS',
-        details: `Orden aprobada por el inversor para ${proposal.symbol}`,
+        details: `Orden aprobada por el inversor`,
         payload: proposal
       });
 
-      // Feedback visual inmediato y desactivación de botones
       await ctx.editMessageText(
-        `✅ *ORDEN APROBADA Y ENVIADA A ALPACA*\n\n` +
-        `• *Activo:* ${proposal.symbol}\n` +
-        `• *Operación:* ${proposal.type.toUpperCase()}\n` +
-        `• *Estado:* Procesada exitosamente por el Broker.\n` +
-        `• *Auditoría:* Registrado en bitácora inmutable.`,
+        `✅ *OPERACIÓN APROBADA CON ÉXITO*\n\n` +
+        `• *Estado:* Enviada al broker Alpaca de forma segura.\n` +
+        `• *Supervisión:* Tus agentes de riesgo monitorearán la posición.\n` +
+        `• *Registro:* Guardado en el historial de operaciones.`,
         { parse_mode: 'Markdown' }
       );
 
       activeProposals.delete(proposalId);
     } catch (err: any) {
-      await ctx.reply(`❌ Error al ejecutar orden en Alpaca: ${err.message}`);
+      await ctx.reply(`❌ Ocurrió un error al enviar la orden: ${err.message}`);
     }
   });
 
@@ -219,10 +256,10 @@ export function setupTelegramBot(
       eventType: 'ORDER_REJECTED',
       actor: 'user',
       level: 'WARN',
-      details: `Propuesta ${proposalId} descartada por el inversor en Telegram`
+      details: `Sugerencia ${proposalId} descartada por el inversor`
     });
 
-    await ctx.editMessageText('❌ *Propuesta descartada.* Los agentes continuarán buscando nuevas alternativas.', { parse_mode: 'Markdown' });
+    await ctx.editMessageText('❌ *Sugerencia descartada.* Continuaremos buscando mejores oportunidades para ti.', { parse_mode: 'Markdown' });
   });
 
   bot.action(/details_(.+)/, async (ctx) => {
@@ -230,83 +267,83 @@ export function setupTelegramBot(
     await ctx.answerCbQuery();
     const proposal = activeProposals.get(proposalId);
     if (proposal) {
-      await ctx.reply(`📖 *Tesis Completa de la Inversión:*\n\n${proposal.thesis}`, { parse_mode: 'Markdown' });
+      await ctx.reply(`📖 *Detalle Completo de la Sugerencia:*\n\n${proposal.thesis}`, { parse_mode: 'Markdown' });
     }
   });
 
-  // 7. Botón táctil: 🛡️ Blindar Ganancias
-  bot.hears(['🛡️ Blindar Ganancias', '/reajustar'], async (ctx) => {
+  // 7. Botón táctil: 🛡️ Proteger Mis Ganancias (o antiguo Blindar Ganancias)
+  bot.hears(['🛡️ Proteger Mis Ganancias', '🛡️ Blindar Ganancias', '/proteger', '/reajustar'], async (ctx) => {
     auditLogger.log({
       eventType: 'RISK_VALIDATION',
       actor: 'risk_manager',
       level: 'INFO',
-      details: 'Auditoría de stops dinámicos y protección de capital completada'
+      details: 'Auditoría de protección de capital completada'
     });
 
     await ctx.reply(
-      '🛡️ *Oficial de Riesgo:* Auditando estado de protección...\n\n' +
-      '• Posiciones con Trailing Stops activos: MSFT (Piso en $520.00), QQQ (Piso en $750.00).\n' +
-      '• Posición en Riesgo Cero: SPY (Stop en Break-even).\n' +
-      '• Capital líquido en caja: >66% garantizado.',
+      '🛡️ *Escudo de Protección Activo:*\n\n' +
+      '• *Control de Pérdidas:* Todas tus posiciones tienen límites automáticos (Stop-Loss) para evitar pérdidas imprevistas.\n' +
+      '• *Bloqueo de Ganancias:* Se actualizan los pisos de venta a medida que sube el precio (Trailing Stops).\n' +
+      '• *Fondo de Reserva:* Más del 60% de tu dinero permanece disponible en efectivo para aprovechar caídas.',
       { parse_mode: 'Markdown', ...mainKeyboard }
     );
   });
 
-  // 8. Botón táctil: 📰 Sentimiento Macro
-  bot.hears(['📰 Sentimiento Macro', '/noticias'], async (ctx) => {
-    await ctx.reply('📡 *Analista:* Consultando sentimiento macro y titulares de Wall Street...', { parse_mode: 'Markdown' });
-    const briefing = await opencode.runTask('Resume en 3 puntos breves el sentimiento actual de Wall Street y el impacto en las Big Tech y los Bonos del Tesoro.');
+  // 8. Botón táctil: 📈 Noticias del Mercado (o antiguo Sentimiento Macro)
+  bot.hears(['📈 Noticias del Mercado', '📰 Sentimiento Macro', '/noticias'], async (ctx) => {
+    await ctx.reply('📡 *Consultando las últimas noticias financieras y tendencias de mercado...*', { parse_mode: 'Markdown' });
+    const briefing = await opencode.runTask('Resume en 3 puntos claros y en español sencillo cómo está el mercado hoy (Wall Street, tasas de interés y tecnología), sin tecnicismos complejos.');
     
     auditLogger.log({
       eventType: 'MACRO_BRIEFING',
       actor: 'market_analyst',
       level: 'INFO',
-      details: 'Briefing macroeconómico generado con OpenCode'
+      details: 'Resumen de mercado entregado'
     });
 
-    await ctx.reply(briefing, { parse_mode: 'Markdown', ...mainKeyboard });
+    await ctx.reply(`📰 *RESUMEN DEL MERCADO DE HOY:*\n\n${briefing}`, { parse_mode: 'Markdown', ...mainKeyboard });
   });
 
-  // 9. Botón táctil: 🛑 Pausa de Emergencia (Kill-Switch)
-  bot.hears(['🛑 Pausa de Emergencia', '/emergencia', '/pausar'], async (ctx) => {
+  // 9. Botón táctil: 🛑 Detener Operaciones (o antiguo Pausa de Emergencia)
+  bot.hears(['🛑 Detener Operaciones', '🛑 Pausa de Emergencia', '/emergencia', '/pausar', '/detener'], async (ctx) => {
     try {
       await alpaca.cancelAllOrders();
       auditLogger.log({
         eventType: 'EMERGENCY_STOP',
         actor: 'user',
         level: 'ERROR',
-        details: 'Kill-switch de emergencia accionado por el usuario desde Telegram'
+        details: 'Detención de operaciones activada por el usuario'
       });
 
       await ctx.reply(
-        '🛑 *KILL-SWITCH DE EMERGENCIA ACTIVADO:*\n\n' +
-        '• Todas las órdenes pendientes en Alpaca han sido canceladas de inmediato.\n' +
-        '• Las compras automáticas quedan completamente suspendidas.\n' +
-        '• El portafolio actual permanece seguro en modo de solo lectura.',
+        '🛑 *OPERACIONES DETENIDAS (MODO SEGURO):*\n\n' +
+        '• Se han cancelado todas las órdenes de compra o venta pendientes.\n' +
+        '• Las compras automáticas quedan pausadas hasta que decidas reanudarlas.\n' +
+        '• Tus activos existentes continúan seguros en tu cuenta.',
         { parse_mode: 'Markdown', ...mainKeyboard }
       );
     } catch (err: any) {
-      await ctx.reply(`Error en pausa de emergencia: ${err.message}`);
+      await ctx.reply(`Error al detener operaciones: ${err.message}`);
     }
   });
 
-  // 10. Procesador Conversacional Inteligente (Preguntas libres del Usuario)
+  // 10. Procesador Conversacional Inteligente (Preguntas libres del Usuario con actualización de pasos)
   bot.on('text', async (ctx) => {
     const userText = ctx.message.text;
 
-    // Ignorar si coincide con algún comando de botón ya capturado
+    // Ignorar botones del teclado
     const knownButtons = [
-      '📊 Ver Resumen Cartera',
-      '🔍 Analizar Ticker',
-      '💡 Ver Nuevas Propuestas',
-      '🛡️ Blindar Ganancias',
-      '📰 Sentimiento Macro',
-      '🛑 Pausa de Emergencia'
+      '💡 Sugerencias de Inversión', '💡 Ver Nuevas Propuestas',
+      '📊 Mi Portafolio', '📊 Ver Resumen Cartera',
+      '🔍 Consultar una Acción/Cripto', '🔍 Analizar Ticker',
+      '📈 Noticias del Mercado', '📰 Sentimiento Macro',
+      '🛡️ Proteger Mis Ganancias', '🛡️ Blindar Ganancias',
+      '🛑 Detener Operaciones', '🛑 Pausa de Emergencia'
     ];
     if (knownButtons.includes(userText)) return;
 
-    updateAgentActivity('director', `[CONSULTA] Atendiendo requerimiento libre: "${userText.slice(0, 30)}..."`, 'ANALIZANDO');
-    updateAgentActivity('analyst', `[INTELIGENCIA] Procesando análisis macro/cripto/bursátil para el usuario`, 'ACTIVO');
+    updateAgentActivity('director', `[CONSULTA] Atendiendo: "${userText.slice(0, 30)}..."`, 'ANALIZANDO');
+    updateAgentActivity('analyst', `[INTELIGENCIA] Investigando datos para el usuario`, 'ACTIVO');
 
     auditLogger.log({
       eventType: 'USER_ACTION',
@@ -315,45 +352,102 @@ export function setupTelegramBot(
       details: `Mensaje de texto: "${userText}"`
     });
 
-    await ctx.reply('🧠 *Escuadrón Heka:* Analizando tu consulta con nuestros agentes y datos en vivo...', { parse_mode: 'Markdown' });
+    // Paso 1: Confirmación de inicio
+    await ctx.reply('🧠 *Paso 1/3:* He recibido tu consulta. Conectando con los datos en vivo del mercado...', { parse_mode: 'Markdown' });
 
     try {
-      // Detección y precarga instantánea de precios en tiempo real para acelerar respuesta
       let liveMarketContext = '';
       const lower = userText.toLowerCase();
 
       if (lower.includes('bitcoin') || lower.includes('btc')) {
         const btcData = await alpaca.getLatestCryptoPrice('BTC/USD');
         if (btcData) {
-          liveMarketContext += `\n[DATO EN VIVO ALPACA CRYPTO] Bitcoin (BTC/USD): Precio actual: $${btcData.price.toLocaleString('en-US')} USD | High 24h: $${btcData.high.toLocaleString('en-US')} | Low 24h: $${btcData.low.toLocaleString('en-US')}.`;
+          liveMarketContext += `\n[DATO EN VIVO ALPACA CRYPTO] Bitcoin (BTC/USD): Precio actual: $${btcData.price.toLocaleString('en-US')} USD | Máximo 24h: $${btcData.high.toLocaleString('en-US')} | Mínimo 24h: $${btcData.low.toLocaleString('en-US')}.`;
         }
       }
 
       if (lower.includes('ethereum') || lower.includes('eth')) {
         const ethData = await alpaca.getLatestCryptoPrice('ETH/USD');
         if (ethData) {
-          liveMarketContext += `\n[DATO EN VIVO ALPACA CRYPTO] Ethereum (ETH/USD): Precio actual: $${ethData.price.toLocaleString('en-US')} USD | High 24h: $${ethData.high.toLocaleString('en-US')} | Low 24h: $${ethData.low.toLocaleString('en-US')}.`;
+          liveMarketContext += `\n[DATO EN VIVO ALPACA CRYPTO] Ethereum (ETH/USD): Precio actual: $${ethData.price.toLocaleString('en-US')} USD | Máximo 24h: $${ethData.high.toLocaleString('en-US')} | Mínimo 24h: $${ethData.low.toLocaleString('en-US')}.`;
         }
       }
+
+      // Paso 2: Notificar procesamiento de razonamiento
+      await ctx.reply('⚖️ *Paso 2/3:* Nuestros agentes de análisis y gestión de riesgo están elaborando la mejor estrategia...', { parse_mode: 'Markdown' });
 
       const prompt = 
         `Actúa como el Escuadrón de Inversiones Heka (Director, Analista y Riesgo). ` +
         `El usuario te ha preguntado: "${userText}". ` +
         (liveMarketContext ? `Datos de mercado verificados en vivo: ${liveMarketContext} ` : '') +
-        `Da una respuesta directa, concisa y profesional (máximo 3-4 párrafos). ` +
-        `Incluye: 1) Diagnóstico y precio actual. 2) Oportunidad / Tendencia. 3) Gestión de Riesgo (Stop-Loss y porcentaje sugerido de cartera no mayor a 5%).`;
+        `Responde de manera muy visual, ordenada y en lenguaje entendible para cualquier persona:\n` +
+        `📊 **1. Situación Actual y Precio** (Qué está pasando ahora)\n` +
+        `🚀 **2. Oportunidades y Puntos Clave** (Qué potencial de ganancia o rebote existe)\n` +
+        `🛡️ **3. Gestión del Riesgo** (Límites de pérdida recomendados y cuánto dinero asignar, máx 5% del capital)\n` +
+        `💡 **4. Recomendación Final** (Una conclusión clara en 2 frases).`;
 
       const response = await opencode.runTask(prompt);
 
-      updateAgentActivity('director', `[ESPERA] Consulta atendida con éxito. Esperando nuevas directivas`, 'ACTIVO');
+      updateAgentActivity('director', `[ESPERA] Consulta atendida con éxito`, 'ACTIVO');
+
+      const proposalId = `prop_${Date.now()}`;
+      activeProposals.set(proposalId, {
+        id: proposalId,
+        symbol: 'OPORTUNIDAD',
+        qty: 1,
+        type: 'buy',
+        thesis: response
+      });
+
+      // Paso 3: Enviar respuesta estructurada con botones de sugerencia y acción
+      const finalMsg = `🏁 *Paso 3/3: Análisis Completado*\n\n${response}`;
 
       try {
-        await ctx.reply(response, { parse_mode: 'Markdown', ...mainKeyboard });
+        await ctx.reply(finalMsg, { parse_mode: 'Markdown', ...mainKeyboard });
       } catch {
-        await ctx.reply(response, mainKeyboard);
+        await ctx.reply(finalMsg, mainKeyboard);
       }
+
+      // Enviar tarjeta con botón de sugerencia de acción
+      await ctx.reply(
+        `👇 *Opciones para esta consulta:*`,
+        Markup.inlineKeyboard([
+          [
+            Markup.button.callback('💡 Ver Sugerencias de Inversión', 'quick_sugerencias'),
+            Markup.button.callback('📊 Ver Mi Portafolio', 'quick_portafolio')
+          ]
+        ])
+      );
     } catch (err: any) {
       await ctx.reply(`⚠️ No pude completar el análisis: ${err.message}`, mainKeyboard);
     }
+  });
+
+  // Callbacks de opciones rápidas
+  bot.action('quick_sugerencias', async (ctx) => {
+    try { await ctx.answerCbQuery(); } catch {}
+    await ctx.reply('💡 Buscando nuevas sugerencias de inversión...');
+    const positions = await alpaca.getPositions();
+    const currentSymbols = positions.map((p) => p.symbol);
+    const result = await opencode.scanForOpportunities(currentSymbols);
+    await ctx.reply(result, mainKeyboard);
+  });
+
+  bot.action('quick_portafolio', async (ctx) => {
+    try { await ctx.answerCbQuery(); } catch {}
+    const account = await alpaca.getAccount();
+    const positions = await alpaca.getPositions();
+    const totalFloatingPL = positions.reduce((acc, p) => acc + (parseFloat(p.unrealized_pl) || 0), 0);
+    const plSign = totalFloatingPL >= 0 ? '+' : '-';
+    const plFormatted = `${plSign}$${Math.abs(totalFloatingPL).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+
+    await ctx.reply(
+      `📊 *Tu Portafolio Rápido:*\n` +
+      `• *Capital Total:* $${parseFloat(account.equity).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD\n` +
+      `• *Efectivo Disponible:* $${parseFloat(account.cash).toLocaleString('en-US', { minimumFractionDigits: 2 })} USD\n` +
+      `• *Beneficio Total Flotante:* ${plFormatted}\n` +
+      `• *🛡️ ${positions.length} Posiciones Protegidas*`,
+      { parse_mode: 'Markdown' }
+    );
   });
 }
