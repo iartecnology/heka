@@ -325,6 +325,7 @@
     <button class="tab-btn active" onclick="showTab('portfolio')">📊 Portafolio & Rendimiento</button>
     <button class="tab-btn" onclick="showTab('agents')">🧠 Actividad de los Agentes (En Vivo)</button>
     <button class="tab-btn" onclick="showTab('logs')">📜 Auditoría Forense & Logs</button>
+    <button class="tab-btn" onclick="showTab('chat')">💬 Test Modelos OpenCode</button>
   </div>
 
   <!-- PESTAÑA 1: PORTAFOLIO Y RENDIMIENTO -->
@@ -527,6 +528,55 @@
 
       <div class="terminal-box" id="logs-container">
         Cargando eventos...
+      </div>
+    </div>
+  </div>
+
+  <!-- PESTAÑA 4: TEST DIRECTO DE MODELOS OPENCODE (RAW CHAT) -->
+  <div id="tab-chat" class="tab-pane">
+    <div class="card" style="display:flex; flex-direction:column; height: 75vh; max-height: 800px; padding: 20px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <div class="card-title" style="margin-bottom: 4px;">🧪 Laboratorio de Pruebas OpenCode (Raw Prompt)</div>
+          <p style="font-size: 12px; color: var(--muted); margin: 0;">
+            Envío directo y puro sin prompts de sistema, sin prefijos ni condicionamientos previos.
+          </p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <label style="font-size: 12px; color: var(--muted); font-weight: 600;">Modelo:</label>
+          <select id="chat-model-select" class="terminal-select" style="min-width: 250px;">
+            <option value="opencode/big-pickle">🥒 Big Pickle (200k CoT Profundo)</option>
+            <option value="opencode/mimo-v2.6-flash-free">⚡ Mimo Flash Free (Ultrarrápido)</option>
+            <option value="opencode/nemotron-3.5-lightning-free">⚡ Nemotron 3.5 Lightning Free</option>
+            <option value="opencode/ling-3.1-flash-free">⚡ Ling 3.1 Flash Free</option>
+            <option value="opencode/exo-free">⚡ Exo Free</option>
+          </select>
+          <button class="terminal-btn" onclick="clearChatHistory()">🗑️ Limpiar Chat</button>
+        </div>
+      </div>
+
+      <!-- Contenedor de Mensajes -->
+      <div id="chat-messages" style="flex: 1; overflow-y: auto; background: #06090e; border: 1px solid var(--border); border-radius: 8px; padding: 16px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px;">
+        <div style="color: var(--muted); font-size: 13px; font-style: italic; text-align: center; margin: auto;">
+          Selecciona un modelo y escribe cualquier prompt para probar su razonamiento y velocidad en tiempo real.
+        </div>
+      </div>
+
+      <!-- Barra de Entrada -->
+      <div style="display: flex; gap: 10px; align-items: flex-end;">
+        <textarea 
+          id="chat-input" 
+          placeholder="Escribe tu prompt aquí... (Shift + Enter para salto de línea, Enter para enviar)"
+          style="flex: 1; height: 60px; background: #000; border: 1px solid var(--border); border-radius: 8px; color: #fff; padding: 10px 14px; font-family: inherit; font-size: 13px; resize: none; outline: none;"
+          onkeydown="handleChatKeyDown(event)"
+        ></textarea>
+        <button 
+          id="chat-send-btn" 
+          onclick="sendChatMessage()" 
+          style="background: var(--primary); color: #000; border: none; font-weight: 700; font-size: 13px; padding: 0 20px; height: 60px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.2s;"
+        >
+          <span>Enviar</span> 🚀
+        </button>
       </div>
     </div>
   </div>
@@ -815,6 +865,133 @@
       if (confirm('¿Estás seguro de accionar el Kill-Switch de Emergencia? Se cancelarán todas las órdenes en Alpaca.')) {
         await fetch('/api/panic', { method: 'POST' });
         alert('Kill-Switch accionado. Operaciones detenidas.');
+      }
+    }
+
+    // ==========================================
+    // CHAT DIRECTO DE MODELOS OPENCODE (RAW)
+    // ==========================================
+    let isChatLoading = false;
+
+    function handleChatKeyDown(event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendChatMessage();
+      }
+    }
+
+    function clearChatHistory() {
+      const container = document.getElementById('chat-messages');
+      container.innerHTML = `
+        <div style="color: var(--muted); font-size: 13px; font-style: italic; text-align: center; margin: auto;">
+          Historial limpiado. Escribe cualquier prompt para probar el modelo directamente.
+        </div>
+      `;
+    }
+
+    function escapeHtml(str) {
+      return (str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    async function sendChatMessage() {
+      if (isChatLoading) return;
+      const input = document.getElementById('chat-input');
+      const modelSelect = document.getElementById('chat-model-select');
+      const messagesContainer = document.getElementById('chat-messages');
+      const sendBtn = document.getElementById('chat-send-btn');
+      
+      const prompt = input.value.trim();
+      const model = modelSelect.value;
+      if (!prompt) return;
+
+      // Si es el primer mensaje, limpiar mensaje placeholder de bienvenida
+      if (messagesContainer.querySelector('div[style*="font-style: italic"]')) {
+        messagesContainer.innerHTML = '';
+      }
+
+      // Renderizar mensaje del usuario
+      const userMsgDiv = document.createElement('div');
+      userMsgDiv.style.cssText = 'align-self: flex-end; max-width: 85%; background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.35); padding: 12px 16px; border-radius: 12px 12px 2px 12px; color: #fff; font-size: 13px; line-height: 1.5; word-break: break-word;';
+      userMsgDiv.innerHTML = `
+        <div style="font-size: 10px; font-weight: 700; color: var(--primary); margin-bottom: 4px; text-transform: uppercase;">Tú (Prompt Puro)</div>
+        <div style="white-space: pre-wrap;">${escapeHtml(prompt)}</div>
+      `;
+      messagesContainer.appendChild(userMsgDiv);
+
+      // Renderizar burbuja del modelo cargando
+      const botMsgDiv = document.createElement('div');
+      botMsgDiv.style.cssText = 'align-self: flex-start; max-width: 85%; background: var(--card); border: 1px solid var(--border); padding: 12px 16px; border-radius: 12px 12px 12px 2px; color: #f8fafc; font-size: 13px; line-height: 1.5; word-break: break-word;';
+      const msgId = 'msg-' + Date.now();
+      botMsgDiv.id = msgId;
+      botMsgDiv.innerHTML = `
+        <div style="font-size: 10px; font-weight: 700; color: var(--accent); margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+          <span>🤖 ${model}</span>
+          <span class="pulse-dot"></span>
+          <span style="color: var(--muted); font-weight: 400;" id="${msgId}-timer">Procesando...</span>
+        </div>
+        <div id="${msgId}-content" style="color: var(--muted); font-style: italic;">
+          ⏳ Ejecutando OpenCode CLI en el contenedor...
+        </div>
+      `;
+      messagesContainer.appendChild(botMsgDiv);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+      // Limpiar input y bloquear botón
+      input.value = '';
+      isChatLoading = true;
+      sendBtn.disabled = true;
+      sendBtn.style.opacity = '0.5';
+
+      const timerStart = Date.now();
+      const timerInterval = setInterval(() => {
+        const elapsed = ((Date.now() - timerStart) / 1000).toFixed(1);
+        const timerEl = document.getElementById(`${msgId}-timer`);
+        if (timerEl) timerEl.innerText = `${elapsed}s transcurridos`;
+      }, 500);
+
+      try {
+        const res = await fetch('/api/opencode/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model, prompt })
+        });
+        const data = await res.json();
+        clearInterval(timerInterval);
+
+        const contentEl = document.getElementById(`${msgId}-content`);
+        const timerEl = document.getElementById(`${msgId}-timer`);
+
+        if (data.error) {
+          timerEl.innerHTML = `<span style="color: var(--danger);">❌ Error</span>`;
+          contentEl.style.color = 'var(--danger)';
+          contentEl.style.fontStyle = 'normal';
+          contentEl.innerText = `${data.error}\n${data.details || ''}`;
+        } else {
+          timerEl.innerHTML = `<span style="color: var(--success); font-weight: 600;">⚡ Respondido en ${data.duration}s</span>`;
+          contentEl.style.color = '#f8fafc';
+          contentEl.style.fontStyle = 'normal';
+          contentEl.style.whiteSpace = 'pre-wrap';
+          contentEl.style.fontFamily = 'monospace';
+          contentEl.innerText = data.response || '(Respuesta vacía)';
+        }
+      } catch (err) {
+        clearInterval(timerInterval);
+        const contentEl = document.getElementById(`${msgId}-content`);
+        const timerEl = document.getElementById(`${msgId}-timer`);
+        if (timerEl) timerEl.innerHTML = `<span style="color: var(--danger);">❌ Fallo de red</span>`;
+        if (contentEl) {
+          contentEl.style.color = 'var(--danger)';
+          contentEl.innerText = `Error de conexión: ${err.message}`;
+        }
+      } finally {
+        isChatLoading = false;
+        sendBtn.disabled = false;
+        sendBtn.style.opacity = '1';
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        input.focus();
       }
     }
 

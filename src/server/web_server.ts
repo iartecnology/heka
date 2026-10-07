@@ -1,7 +1,11 @@
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
+import { execFile } from 'child_process';
+import util from 'util';
 import { AlpacaClient } from '../agents/alpaca_client';
+
+const execFilePromise = util.promisify(execFile);
 
 export interface AgentTelemetry {
   director: { status: string; activity: string; lastUpdated: string };
@@ -86,6 +90,62 @@ export function startWebServer(alpaca: AlpacaClient, port: number = 3000) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ status: 'error', message: err.message }));
       }
+      return;
+    }
+
+    // 1.2 API: Modelos disponibles de OpenCode para pruebas
+    if (req.url === '/api/opencode/models' && req.method === 'GET') {
+      const models = [
+        { id: 'opencode/big-pickle', name: '🥒 Big Pickle (200k tokens - CoT Profundo)' },
+        { id: 'opencode/mimo-v2.6-flash-free', name: '⚡ Mimo Flash Free (Ultrarrápido)' },
+        { id: 'opencode/nemotron-3.5-lightning-free', name: '⚡ Nemotron 3.5 Lightning Free' },
+        { id: 'opencode/ling-3.1-flash-free', name: '⚡ Ling 3.1 Flash Free' },
+        { id: 'opencode/exo-free', name: '⚡ Exo Free' }
+      ];
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ models }));
+      return;
+    }
+
+    // 1.3 API: Chat de prueba puro (Raw Prompt - sin prompt de sistema precargado)
+    if (req.url === '/api/opencode/chat' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', async () => {
+        try {
+          const parsed = JSON.parse(body || '{}');
+          const prompt = parsed.prompt?.trim();
+          const selectedModel = parsed.model || 'opencode/big-pickle';
+
+          if (!prompt) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'El prompt no puede estar vacío.' }));
+            return;
+          }
+
+          const startTime = Date.now();
+          console.log(`🧪 [TEST CHAT] Invocando ${selectedModel} con prompt puro: "${prompt.slice(0, 100)}..."`);
+          
+          // Ejecución 100% pura: sin ningún system prompt ni instrucciones adicionales
+          const args = ['run', '--pure', '--model', selectedModel, prompt];
+          const { stdout, stderr } = await execFilePromise('opencode', args, { timeout: 180000 });
+          const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            response: (stdout || stderr || '').trim(),
+            duration: Number(duration),
+            model: selectedModel
+          }));
+        } catch (err: any) {
+          console.error(`❌ [TEST CHAT ERROR] ${err.message}`);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ 
+            error: err.message || 'Error al ejecutar el modelo',
+            details: err.stderr || err.stdout || null
+          }));
+        }
+      });
       return;
     }
 
