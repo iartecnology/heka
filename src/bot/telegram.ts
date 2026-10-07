@@ -318,12 +318,32 @@ export function setupTelegramBot(
     await ctx.reply('🧠 *Escuadrón Heka:* Analizando tu consulta con nuestros agentes y datos en vivo...', { parse_mode: 'Markdown' });
 
     try {
-      const response = await opencode.runTask(
+      // Detección y precarga instantánea de precios en tiempo real para acelerar respuesta
+      let liveMarketContext = '';
+      const lower = userText.toLowerCase();
+
+      if (lower.includes('bitcoin') || lower.includes('btc')) {
+        const btcData = await alpaca.getLatestCryptoPrice('BTC/USD');
+        if (btcData) {
+          liveMarketContext += `\n[DATO EN VIVO ALPACA CRYPTO] Bitcoin (BTC/USD): Precio actual: $${btcData.price.toLocaleString('en-US')} USD | High 24h: $${btcData.high.toLocaleString('en-US')} | Low 24h: $${btcData.low.toLocaleString('en-US')}.`;
+        }
+      }
+
+      if (lower.includes('ethereum') || lower.includes('eth')) {
+        const ethData = await alpaca.getLatestCryptoPrice('ETH/USD');
+        if (ethData) {
+          liveMarketContext += `\n[DATO EN VIVO ALPACA CRYPTO] Ethereum (ETH/USD): Precio actual: $${ethData.price.toLocaleString('en-US')} USD | High 24h: $${ethData.high.toLocaleString('en-US')} | Low 24h: $${ethData.low.toLocaleString('en-US')}.`;
+        }
+      }
+
+      const prompt = 
         `Actúa como el Escuadrón de Inversiones Heka (Director, Analista y Riesgo). ` +
         `El usuario te ha preguntado: "${userText}". ` +
-        `Usa tus herramientas para dar una respuesta clara, concisa, profesional y fundamentada en datos de mercado. ` +
-        `Si te pregunta por criptos (Bitcoin, Ethereum, etc.), acciones o ETFs, resume precio actual, tendencia y perspectiva de riesgo.`
-      );
+        (liveMarketContext ? `Datos de mercado verificados en vivo: ${liveMarketContext} ` : '') +
+        `Da una respuesta directa, concisa y profesional (máximo 3-4 párrafos). ` +
+        `Incluye: 1) Diagnóstico y precio actual. 2) Oportunidad / Tendencia. 3) Gestión de Riesgo (Stop-Loss y porcentaje sugerido de cartera no mayor a 5%).`;
+
+      const response = await opencode.runTask(prompt);
 
       updateAgentActivity('director', `[ESPERA] Consulta atendida con éxito. Esperando nuevas directivas`, 'ACTIVO');
 
