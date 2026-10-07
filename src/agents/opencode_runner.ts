@@ -17,13 +17,19 @@ export class OpenCodeRunner {
    * Ejecuta una tarea usando el modelo ultrarrápido y compatible con MCP.
    */
   async runDeepTask(prompt: string): Promise<string> {
+    const startTime = Date.now();
+    console.log(`\n🤖 [OPENCODE] Invocando modelo ${this.reasoningModel}...`);
+    console.log(`📝 [PROMPT] ${prompt.slice(0, 150)}...`);
+
     try {
       const sanitizedPrompt = prompt.replace(/"/g, '\\"');
       const command = `opencode run --pure --model ${this.reasoningModel} "${sanitizedPrompt}"`;
       const { stdout } = await execPromise(command, { timeout: 120000 });
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`✅ [OPENCODE] Respuesta recibida en ${duration}s (${stdout.length} caracteres)`);
       return stdout.trim();
     } catch (error: any) {
-      console.warn(`Fallback tras error en modelo principal: ${error.message}`);
+      console.warn(`⚠️ [OPENCODE] Fallback tras error en ${this.reasoningModel}: ${error.message}`);
       return this.runFastTask(prompt);
     }
   }
@@ -32,13 +38,18 @@ export class OpenCodeRunner {
    * Fallback
    */
   async runFastTask(prompt: string): Promise<string> {
+    const startTime = Date.now();
+    console.log(`🔄 [OPENCODE FALLBACK] Invocando modelo ${this.fallbackModel}...`);
+
     try {
       const sanitizedPrompt = prompt.replace(/"/g, '\\"');
       const command = `opencode run --pure --model ${this.fallbackModel} "${sanitizedPrompt}"`;
       const { stdout } = await execPromise(command, { timeout: 60000 });
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`✅ [OPENCODE FALLBACK] Respuesta recibida en ${duration}s`);
       return stdout.trim();
     } catch (error: any) {
-      console.error('Error al ejecutar OpenCode fallback:', error);
+      console.error(`❌ [OPENCODE ERROR] ${error.message}`);
       return `Error al invocar OpenCode: ${error.message}`;
     }
   }
