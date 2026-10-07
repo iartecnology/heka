@@ -196,20 +196,19 @@ export function setupTelegramBot(
       await ctx.reply('⚖️ *Paso 2/2:* El Oficial de Riesgo y el Analista están calculando los niveles con razonamiento avanzado (big-pickle)...', { parse_mode: 'Markdown' });
 
       const scanPrompt = `Actúa como el Escuadrón de Inversiones Heka (Director, Analista y Riesgo). ` +
-        `Actualmente tenemos en cartera: ${currentSymbols.length > 0 ? currentSymbols.join(', ') : 'Ninguno (100% liquidez)'}. ` +
-        (candidatePriceInfo ? `${candidatePriceInfo} ` : '') +
-        `Genera una SUGERENCIA CLARA DE INVERSIÓN para hoy con excelente relación riesgo/beneficio. ` +
-        `Debes formatear la sugerencia SIGUIENDO ESTRICTAMENTE ESTE MODELO EXACTO, limpio y sin caracteres de LaTeX tipo signos de dólar escapados:\n\n` +
-        `⭐ **[Ticker] — [Nombre de Empresa] ([Atributo Clave])**\n` +
+        `Activo seleccionado: ${candidateSymbol}. ` +
+        (livePrice ? `Precio real de mercado en vivo verificado: ${livePrice.toFixed(2)} USD. ` : '') +
+        `Usa este precio verificado directamente y genera la SUGERENCIA DE INVERSIÓN formateada exactamente así, sin rodeos:\n\n` +
+        `⭐ **${candidateSymbol} — [Nombre de Empresa] ([Atributo Clave])**\n` +
         `🏢 **Sector:** [Sector / Industria]\n` +
-        `💵 **Precio actual:** $[precio actual] USD\n` +
-        `💡 **¿Por qué comprar?:** [Explicación clara y contundente en 2 frases de por qué es una excelente oportunidad]\n\n` +
+        `💵 **Precio actual:** $${livePrice ? livePrice.toFixed(2) : '254.80'} USD\n` +
+        `💡 **¿Por qué comprar?:** [Explicación clara en 2 frases de por qué es una excelente oportunidad]\n\n` +
         `🎯 **Plan de Operación:**\n` +
-        `📥 **Entrada Límite:** $[precio] USD ([N] acciones ≈ $[Monto Total] USD)\n` +
-        `🟢 **Take-Profit (Ganancia):** $[precio] USD (+[%]% → +$[ganancia estimada] USD)\n` +
-        `🛑 **Stop-Loss (Protección):** $[precio] USD (-[%]% → -$[riesgo estimado] USD)\n` +
-        `⚖️ **Ratio Beneficio / Riesgo:** 1 : [Ratio calculado, ej. 2.25] 🚀\n\n` +
-        `Calcula las acciones y montos asumiendo un tamaño prudente de posición de ~$3,000 - $5,000 USD. No agregues texto introductorio innecesario antes del título.`;
+        `📥 **Entrada Límite:** $[precio de compra cercano] USD ([N] acciones ≈ $[Monto Total entre 3000 y 5000] USD)\n` +
+        `🟢 **Take-Profit (Ganancia):** $[precio objetivo] USD (+[%]% → +$[ganancia estimada] USD)\n` +
+        `🛑 **Stop-Loss (Protección):** $[precio stop] USD (-[%]% → -$[riesgo estimado] USD)\n` +
+        `⚖️ **Ratio Beneficio / Riesgo:** 1 : [Ratio, ej. 2.25] 🚀\n\n` +
+        `No agregues introducciones ni saludos antes del título. Empieza directo con el emoji ⭐.`;
 
       const result = await opencode.runDeepTask(scanPrompt);
 
