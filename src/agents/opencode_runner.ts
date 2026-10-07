@@ -8,18 +8,18 @@ export class OpenCodeRunner {
   private fallbackModel: string;
 
   constructor() {
-    // nemotron-3.5-lightning-free responde en segundos con herramientas de MCP integradas
-    this.reasoningModel = process.env.OPENCODE_MODEL || 'opencode/nemotron-3.5-lightning-free';
-    this.fallbackModel = 'opencode/mimo-v2.6-flash-free';
+    // mimo-v2.6-flash-free responde en menos de 10-15s conectando a MCPs sin cuelgues
+    this.reasoningModel = process.env.OPENCODE_MODEL || 'opencode/mimo-v2.6-flash-free';
+    this.fallbackModel = 'opencode/nemotron-3.5-lightning-free';
   }
 
   /**
-   * Ejecuta una tarea usando el modelo de alta velocidad nemotron-3.5-lightning.
+   * Ejecuta una tarea usando el modelo ultrarrápido y compatible con MCP.
    */
   async runDeepTask(prompt: string): Promise<string> {
     try {
       const sanitizedPrompt = prompt.replace(/"/g, '\\"');
-      const command = `opencode run --model ${this.reasoningModel} "${sanitizedPrompt}"`;
+      const command = `opencode run --pure --model ${this.reasoningModel} "${sanitizedPrompt}"`;
       const { stdout } = await execPromise(command, { timeout: 120000 });
       return stdout.trim();
     } catch (error: any) {
@@ -29,12 +29,12 @@ export class OpenCodeRunner {
   }
 
   /**
-   * Fallback a modelo ultraligero
+   * Fallback
    */
   async runFastTask(prompt: string): Promise<string> {
     try {
       const sanitizedPrompt = prompt.replace(/"/g, '\\"');
-      const command = `opencode run --model ${this.fallbackModel} "${sanitizedPrompt}"`;
+      const command = `opencode run --pure --model ${this.fallbackModel} "${sanitizedPrompt}"`;
       const { stdout } = await execPromise(command, { timeout: 60000 });
       return stdout.trim();
     } catch (error: any) {

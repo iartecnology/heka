@@ -289,4 +289,51 @@ export function setupTelegramBot(
       await ctx.reply(`Error en pausa de emergencia: ${err.message}`);
     }
   });
+
+  // 10. Procesador Conversacional Inteligente (Preguntas libres del Usuario)
+  bot.on('text', async (ctx) => {
+    const userText = ctx.message.text;
+
+    // Ignorar si coincide con algún comando de botón ya capturado
+    const knownButtons = [
+      '📊 Ver Resumen Cartera',
+      '🔍 Analizar Ticker',
+      '💡 Ver Nuevas Propuestas',
+      '🛡️ Blindar Ganancias',
+      '📰 Sentimiento Macro',
+      '🛑 Pausa de Emergencia'
+    ];
+    if (knownButtons.includes(userText)) return;
+
+    updateAgentActivity('director', `[CONSULTA] Atendiendo requerimiento libre: "${userText.slice(0, 30)}..."`, 'ANALIZANDO');
+    updateAgentActivity('analyst', `[INTELIGENCIA] Procesando análisis macro/cripto/bursátil para el usuario`, 'ACTIVO');
+
+    auditLogger.log({
+      eventType: 'USER_ACTION',
+      actor: 'user',
+      level: 'INFO',
+      details: `Mensaje de texto: "${userText}"`
+    });
+
+    await ctx.reply('🧠 *Escuadrón Heka:* Analizando tu consulta con nuestros agentes y datos en vivo...', { parse_mode: 'Markdown' });
+
+    try {
+      const response = await opencode.runTask(
+        `Actúa como el Escuadrón de Inversiones Heka (Director, Analista y Riesgo). ` +
+        `El usuario te ha preguntado: "${userText}". ` +
+        `Usa tus herramientas para dar una respuesta clara, concisa, profesional y fundamentada en datos de mercado. ` +
+        `Si te pregunta por criptos (Bitcoin, Ethereum, etc.), acciones o ETFs, resume precio actual, tendencia y perspectiva de riesgo.`
+      );
+
+      updateAgentActivity('director', `[ESPERA] Consulta atendida con éxito. Esperando nuevas directivas`, 'ACTIVO');
+
+      try {
+        await ctx.reply(response, { parse_mode: 'Markdown', ...mainKeyboard });
+      } catch {
+        await ctx.reply(response, mainKeyboard);
+      }
+    } catch (err: any) {
+      await ctx.reply(`⚠️ No pude completar el análisis: ${err.message}`, mainKeyboard);
+    }
+  });
 }
