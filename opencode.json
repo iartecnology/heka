@@ -3,7 +3,7 @@
   "mcp": {
     "alpaca": {
       "type": "local",
-      "command": ["uvx", "alpaca-mcp-server"],
+      "command": ["alpaca-mcp-server"],
       "enabled": true,
       "environment": {
         "ALPACA_API_KEY": "{env:ALPACA_API_KEY}",
@@ -13,7 +13,7 @@
     },
     "yahoo-finance": {
       "type": "local",
-      "command": ["uvx", "yfinance-mcp-server"],
+      "command": ["yfinance-mcp-server"],
       "enabled": true
     }
   },

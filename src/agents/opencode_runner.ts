@@ -1,7 +1,7 @@
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import util from 'util';
 
-const execPromise = util.promisify(exec);
+const execFilePromise = util.promisify(execFile);
 
 export class OpenCodeRunner {
   private reasoningModel: string;
@@ -14,7 +14,7 @@ export class OpenCodeRunner {
   }
 
   /**
-   * Ejecuta una tarea usando razonamiento profundo con big-pickle.
+   * Ejecuta una tarea usando razonamiento profundo con big-pickle de forma directa sin pasar por shell bash.
    */
   async runDeepTask(prompt: string): Promise<string> {
     const startTime = Date.now();
@@ -22,13 +22,8 @@ export class OpenCodeRunner {
     console.log(`📝 [PROMPT] ${prompt.slice(0, 150)}...`);
 
     try {
-      // Escapar dobles comillas y signos de dólar para que bash no intente resolver variables como $precio
-      const sanitizedPrompt = prompt
-        .replace(/"/g, '\\"')
-        .replace(/\$/g, '\\$');
-
-      const command = `opencode run --pure --model ${this.reasoningModel} "${sanitizedPrompt}"`;
-      const { stdout } = await execPromise(command, { timeout: 150000 });
+      const args = ['run', '--pure', '--model', this.reasoningModel, prompt];
+      const { stdout } = await execFilePromise('opencode', args, { timeout: 150000 });
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`✅ [OPENCODE] Respuesta recibida en ${duration}s (${stdout.length} caracteres)`);
       return stdout.trim();
@@ -39,19 +34,15 @@ export class OpenCodeRunner {
   }
 
   /**
-   * Fallback ultrarrápido con mimo-v2.6-flash-free
+   * Fallback ultrarrápido con mimo-v2.6-flash-free sin pasar por shell bash.
    */
   async runFastTask(prompt: string): Promise<string> {
     const startTime = Date.now();
     console.log(`🔄 [OPENCODE FALLBACK] Invocando modelo rápido ${this.fallbackModel}...`);
 
     try {
-      const sanitizedPrompt = prompt
-        .replace(/"/g, '\\"')
-        .replace(/\$/g, '\\$');
-
-      const command = `opencode run --pure --model ${this.fallbackModel} "${sanitizedPrompt}"`;
-      const { stdout } = await execPromise(command, { timeout: 90000 });
+      const args = ['run', '--pure', '--model', this.fallbackModel, prompt];
+      const { stdout } = await execFilePromise('opencode', args, { timeout: 90000 });
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`✅ [OPENCODE FALLBACK] Respuesta recibida en ${duration}s`);
       return stdout.trim();
