@@ -114,6 +114,12 @@ export function setupTelegramBot(
     updateAgentActivity('analyst', `[INVESTIGACIÓN] Analizando a fondo ${symbol} en tiempo real`, 'ANALIZANDO');
     updateAgentActivity('director', `[ESPERA] Evaluando tesis financiera de ${symbol}`, 'EVALUANDO');
 
+    // Indicador activo de "escribiendo..." en Telegram
+    const typingInterval = setInterval(() => {
+      ctx.sendChatAction('typing').catch(() => {});
+    }, 4000);
+    ctx.sendChatAction('typing').catch(() => {});
+
     await ctx.reply(`🔍 *Paso 1/3:* Conectando con los mercados para obtener precios y datos de *${symbol}*...`, { parse_mode: 'Markdown' });
 
     try {
@@ -123,9 +129,14 @@ export function setupTelegramBot(
         if (crypto) {
           liveInfo = `Precio actual: $${crypto.price.toLocaleString('en-US')} USD | Máximo hoy: $${crypto.high.toLocaleString('en-US')} | Mínimo hoy: $${crypto.low.toLocaleString('en-US')}`;
         }
+      } else {
+        const stockPrice = await alpaca.getLatestStockPrice(symbol);
+        if (stockPrice) {
+          liveInfo = `Precio actual en vivo: $${stockPrice.toFixed(2)} USD`;
+        }
       }
 
-      await ctx.reply(`🧠 *Paso 2/3:* Nuestro equipo de analistas y gestión de riesgo está evaluando fundamentales y tendencias de *${symbol}*...`, { parse_mode: 'Markdown' });
+      await ctx.reply(`🧠 *Paso 2/3:* Nuestro equipo de analistas está evaluando fundamentales y riesgos de *${symbol}* con big-pickle...`, { parse_mode: 'Markdown' });
 
       const analysisPrompt = `Actúa como el Escuadrón Heka. Analiza el activo ${symbol} para un inversor. ` +
         (liveInfo ? `Datos en vivo: ${liveInfo}. ` : '') +
@@ -143,74 +154,98 @@ export function setupTelegramBot(
       auditLogger.log({
         eventType: 'RESEARCH_COMPLETED',
         actor: 'market_analyst',
-        level: 'INFO',
         details: `Análisis generado para ${symbol}`
       });
 
       await ctx.reply(`🏁 *Paso 3/3: Análisis completado.*\n\n${analysis}`, { parse_mode: 'Markdown', ...mainKeyboard });
     } catch (error: any) {
       await ctx.reply(`❌ Ocurrió un inconveniente al analizar ${symbol}: ${error.message}`);
+    } finally {
+      clearInterval(typingInterval);
     }
   });
 
   // 5. Botón táctil: 💡 Sugerencias de Inversión (o antiguo Ver Nuevas Propuestas)
   bot.hears(['💡 Sugerencias de Inversión', '💡 Ver Nuevas Propuestas', '/propuestas', '/sugerencias'], async (ctx) => {
+    // Indicador activo de "escribiendo..." en Telegram
+    const typingInterval = setInterval(() => {
+      ctx.sendChatAction('typing').catch(() => {});
+    }, 4000);
+    ctx.sendChatAction('typing').catch(() => {});
+
     updateAgentActivity('analyst', `[ESCÁNER] Analizando universo de activos para sugerencias`, 'ESCANEANDO');
     updateAgentActivity('risk', `[AUDITORÍA] Verificando liquidez y control de riesgo`, 'VERIFICANDO');
     updateAgentActivity('director', `[COORDINACIÓN] Seleccionando la mejor sugerencia para el inversor`, 'DEBATIENDO');
 
     await ctx.reply('🔎 *Paso 1/2:* Escaneando oportunidades destacadas en el mercado (S&P 500, ETFs y Cripto)...', { parse_mode: 'Markdown' });
-    const positions = await alpaca.getPositions();
-    const currentSymbols = positions.map((p) => p.symbol);
-
-    await ctx.reply('⚖️ *Paso 2/2:* El Oficial de Riesgo está calculando los niveles de seguridad y relación beneficio/riesgo...', { parse_mode: 'Markdown' });
-
-    const scanPrompt = `Actúa como el Escuadrón de Inversiones Heka (Director, Analista y Riesgo). ` +
-      `Actualmente tenemos en cartera: ${currentSymbols.length > 0 ? currentSymbols.join(', ') : 'Ninguno (100% liquidez)'}. ` +
-      `Genera una SUGERENCIA CLARA DE INVERSIÓN para hoy con excelente relación riesgo/beneficio. ` +
-      `Debes formatear la sugerencia SIGUIENDO ESTRICTAMENTE ESTE MODELO EXACTO, limpio y sin caracteres de LaTeX tipo signos de dólar escapados:\n\n` +
-      `⭐ **[Ticker] — [Nombre de Empresa] ([Atributo Clave])**\n` +
-      `🏢 **Sector:** [Sector / Industria]\n` +
-      `💵 **Precio actual:** $[precio actual] USD\n` +
-      `💡 **¿Por qué comprar?:** [Explicación clara y contundente en 2 frases de por qué es una excelente oportunidad]\n\n` +
-      `🎯 **Plan de Operación:**\n` +
-      `📥 **Entrada Límite:** $[precio] USD ([N] acciones ≈ $[Monto Total] USD)\n` +
-      `🟢 **Take-Profit (Ganancia):** $[precio] USD (+[%]% → +$[ganancia estimada] USD)\n` +
-      `🛑 **Stop-Loss (Protección):** $[precio] USD (-[%]% → -$[riesgo estimado] USD)\n` +
-      `⚖️ **Ratio Beneficio / Riesgo:** 1 : [Ratio calculado, ej. 2.25] 🚀\n\n` +
-      `Calcula las acciones y montos asumiendo un tamaño prudente de posición de ~$3,000 - $5,000 USD. No agregues texto introductorio innecesario antes del título.`;
-
-    const result = await opencode.runDeepTask(scanPrompt);
-
-    updateAgentActivity('director', `[LISTO] Sugerencia enviada a Telegram`, 'PROPONIENDO');
-    updateAgentActivity('risk', `[BLINDADO] Niveles de seguridad validados`, 'BLINDADO');
-    updateAgentActivity('analyst', `[EN ESPERA] Escaneo concluido`, 'ACTIVO');
-
-    const proposalId = `prop_${Date.now()}`;
-    activeProposals.set(proposalId, {
-      id: proposalId,
-      symbol: 'SUGERENCIA',
-      qty: 1,
-      type: 'buy',
-      thesis: result
-    });
-
-    auditLogger.log({
-      eventType: 'ORDER_PROPOSAL',
-      actor: 'director',
-      level: 'INFO',
-      details: 'Sugerencia de inversión estructurada enviada a Telegram'
-    });
 
     try {
-      await ctx.reply(result, { parse_mode: 'Markdown', ...mainKeyboard });
-    } catch {
-      await ctx.reply(result, mainKeyboard);
+      const positions = await alpaca.getPositions();
+      const currentSymbols = positions.map((p) => p.symbol);
+
+      // Pre-selección inteligente de un candidato sólido no presente en cartera para acelerar el análisis
+      const watchlist = ['JNJ', 'NVDA', 'AAPL', 'AMZN', 'COST', 'MSFT', 'SPY', 'QQQ'];
+      const candidateSymbol = watchlist.find((s) => !currentSymbols.includes(s)) || 'JNJ';
+      
+      let candidatePriceInfo = '';
+      const livePrice = await alpaca.getLatestStockPrice(candidateSymbol);
+      if (livePrice) {
+        candidatePriceInfo = `Activo candidato pre-filtrado por liquidez y solvencia: ${candidateSymbol}. Precio real actual en vivo: $${livePrice.toFixed(2)} USD.`;
+      }
+
+      await ctx.reply('⚖️ *Paso 2/2:* El Oficial de Riesgo y el Analista están calculando los niveles con razonamiento avanzado (big-pickle)...', { parse_mode: 'Markdown' });
+
+      const scanPrompt = `Actúa como el Escuadrón de Inversiones Heka (Director, Analista y Riesgo). ` +
+        `Actualmente tenemos en cartera: ${currentSymbols.length > 0 ? currentSymbols.join(', ') : 'Ninguno (100% liquidez)'}. ` +
+        (candidatePriceInfo ? `${candidatePriceInfo} ` : '') +
+        `Genera una SUGERENCIA CLARA DE INVERSIÓN para hoy con excelente relación riesgo/beneficio. ` +
+        `Debes formatear la sugerencia SIGUIENDO ESTRICTAMENTE ESTE MODELO EXACTO, limpio y sin caracteres de LaTeX tipo signos de dólar escapados:\n\n` +
+        `⭐ **[Ticker] — [Nombre de Empresa] ([Atributo Clave])**\n` +
+        `🏢 **Sector:** [Sector / Industria]\n` +
+        `💵 **Precio actual:** $[precio actual] USD\n` +
+        `💡 **¿Por qué comprar?:** [Explicación clara y contundente en 2 frases de por qué es una excelente oportunidad]\n\n` +
+        `🎯 **Plan de Operación:**\n` +
+        `📥 **Entrada Límite:** $[precio] USD ([N] acciones ≈ $[Monto Total] USD)\n` +
+        `🟢 **Take-Profit (Ganancia):** $[precio] USD (+[%]% → +$[ganancia estimada] USD)\n` +
+        `🛑 **Stop-Loss (Protección):** $[precio] USD (-[%]% → -$[riesgo estimado] USD)\n` +
+        `⚖️ **Ratio Beneficio / Riesgo:** 1 : [Ratio calculado, ej. 2.25] 🚀\n\n` +
+        `Calcula las acciones y montos asumiendo un tamaño prudente de posición de ~$3,000 - $5,000 USD. No agregues texto introductorio innecesario antes del título.`;
+
+      const result = await opencode.runDeepTask(scanPrompt);
+
+      updateAgentActivity('director', `[LISTO] Sugerencia enviada a Telegram`, 'PROPONIENDO');
+      updateAgentActivity('risk', `[BLINDADO] Niveles de seguridad validados`, 'BLINDADO');
+      updateAgentActivity('analyst', `[EN ESPERA] Escaneo concluido`, 'ACTIVO');
+
+      const proposalId = `prop_${Date.now()}`;
+      activeProposals.set(proposalId, {
+        id: proposalId,
+        symbol: candidateSymbol,
+        qty: 1,
+        type: 'buy',
+        thesis: result
+      });
+
+      auditLogger.log({
+        eventType: 'ORDER_PROPOSAL',
+        actor: 'director',
+        details: 'Sugerencia de inversión estructurada enviada a Telegram'
+      });
+
+      try {
+        await ctx.reply(result, { parse_mode: 'Markdown', ...mainKeyboard });
+      } catch {
+        await ctx.reply(result, mainKeyboard);
+      }
+      await ctx.reply(
+        `🎯 *Acciones sugeridas:* ¿Deseas aprobar esta operación o prefieres ver más detalles?`,
+        createProposalKeyboard(proposalId)
+      );
+    } catch (err: any) {
+      await ctx.reply(`⚠️ No pudimos generar la sugerencia: ${err.message}`, mainKeyboard);
+    } finally {
+      clearInterval(typingInterval);
     }
-    await ctx.reply(
-      `🎯 *Acciones sugeridas:* ¿Deseas aprobar esta operación o prefieres ver más detalles?`,
-      createProposalKeyboard(proposalId)
-    );
   });
 
   // 6. Botones Interactivos de Aprobación/Rechazo de Órdenes
@@ -352,6 +387,12 @@ export function setupTelegramBot(
       details: `Mensaje de texto: "${userText}"`
     });
 
+    // Indicador activo de "escribiendo..." en Telegram
+    const typingInterval = setInterval(() => {
+      ctx.sendChatAction('typing').catch(() => {});
+    }, 4000);
+    ctx.sendChatAction('typing').catch(() => {});
+
     // Paso 1: Confirmación de inicio
     await ctx.reply('🧠 *Paso 1/3:* He recibido tu consulta. Conectando con los datos en vivo del mercado...', { parse_mode: 'Markdown' });
 
@@ -420,6 +461,8 @@ export function setupTelegramBot(
       );
     } catch (err: any) {
       await ctx.reply(`⚠️ No pude completar el análisis: ${err.message}`, mainKeyboard);
+    } finally {
+      clearInterval(typingInterval);
     }
   });
 

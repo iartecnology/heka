@@ -8,13 +8,13 @@ export class OpenCodeRunner {
   private fallbackModel: string;
 
   constructor() {
-    // mimo-v2.6-flash-free responde en menos de 10-15s conectando a MCPs sin cuelgues
-    this.reasoningModel = process.env.OPENCODE_MODEL || 'opencode/mimo-v2.6-flash-free';
-    this.fallbackModel = 'opencode/nemotron-3.5-lightning-free';
+    // big-pickle con 200k tokens y razonamiento CoT profundo, fallback con mimo ultrarrápido
+    this.reasoningModel = process.env.OPENCODE_MODEL || 'opencode/big-pickle';
+    this.fallbackModel = 'opencode/mimo-v2.6-flash-free';
   }
 
   /**
-   * Ejecuta una tarea usando el modelo ultrarrápido y compatible con MCP.
+   * Ejecuta una tarea usando razonamiento profundo con big-pickle.
    */
   async runDeepTask(prompt: string): Promise<string> {
     const startTime = Date.now();
@@ -22,29 +22,36 @@ export class OpenCodeRunner {
     console.log(`📝 [PROMPT] ${prompt.slice(0, 150)}...`);
 
     try {
-      const sanitizedPrompt = prompt.replace(/"/g, '\\"');
+      // Escapar dobles comillas y signos de dólar para que bash no intente resolver variables como $precio
+      const sanitizedPrompt = prompt
+        .replace(/"/g, '\\"')
+        .replace(/\$/g, '\\$');
+
       const command = `opencode run --pure --model ${this.reasoningModel} "${sanitizedPrompt}"`;
-      const { stdout } = await execPromise(command, { timeout: 120000 });
+      const { stdout } = await execPromise(command, { timeout: 150000 });
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`✅ [OPENCODE] Respuesta recibida en ${duration}s (${stdout.length} caracteres)`);
       return stdout.trim();
     } catch (error: any) {
-      console.warn(`⚠️ [OPENCODE] Fallback tras error en ${this.reasoningModel}: ${error.message}`);
+      console.warn(`⚠️ [OPENCODE] Fallback tras error o timeout en ${this.reasoningModel}: ${error.message}`);
       return this.runFastTask(prompt);
     }
   }
 
   /**
-   * Fallback
+   * Fallback ultrarrápido con mimo-v2.6-flash-free
    */
   async runFastTask(prompt: string): Promise<string> {
     const startTime = Date.now();
-    console.log(`🔄 [OPENCODE FALLBACK] Invocando modelo ${this.fallbackModel}...`);
+    console.log(`🔄 [OPENCODE FALLBACK] Invocando modelo rápido ${this.fallbackModel}...`);
 
     try {
-      const sanitizedPrompt = prompt.replace(/"/g, '\\"');
+      const sanitizedPrompt = prompt
+        .replace(/"/g, '\\"')
+        .replace(/\$/g, '\\$');
+
       const command = `opencode run --pure --model ${this.fallbackModel} "${sanitizedPrompt}"`;
-      const { stdout } = await execPromise(command, { timeout: 60000 });
+      const { stdout } = await execPromise(command, { timeout: 90000 });
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`✅ [OPENCODE FALLBACK] Respuesta recibida en ${duration}s`);
       return stdout.trim();
