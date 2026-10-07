@@ -1,59 +1,129 @@
 import { execFile } from 'child_process';
 import util from 'util';
+import http from 'http';
 
 const execFilePromise = util.promisify(execFile);
 
 export class OpenCodeRunner {
   private reasoningModel: string;
   private fallbackModel: string;
+  private serverPort: number = 4096;
+  private serverStarted: boolean = false;
 
   constructor() {
-    // big-pickle con 200k tokens y razonamiento CoT profundo, fallback con mimo ultrarrápido
     this.reasoningModel = process.env.OPENCODE_MODEL || 'opencode/big-pickle';
     this.fallbackModel = 'opencode/mimo-v2.6-flash-free';
+    this.ensureServer();
   }
 
   /**
-   * Ejecuta una tarea usando razonamiento profundo con big-pickle de forma directa sin pasar por shell bash.
+   * Garantiza que el servidor de OpenCode esté corriendo en segundo plano para respuestas instantáneas
+   */
+  private ensureServer() {
+    if (this.serverStarted) return;
+    try {
+      const { spawn } = require('child_process');
+      const srv = spawn('opencode', ['serve', '--port', String(this.serverPort)], {
+        detached: true,
+        stdio: 'ignore'
+      });
+      srv.unref();
+      this.serverStarted = true;
+      console.log(`🚀 [OPENCODE DAEMON] Servidor headless iniciado en puerto ${this.serverPort}`);
+    } catch (e: any) {
+      console.warn(`⚠️ [OPENCODE DAEMON] No se pudo arrancar el servidor daemon: ${e.message}`);
+    }
+  }
+
+  /**
+   * Envía un mensaje vía HTTP API rápida a la sesión de OpenCode
+   */
+  private async queryServer(modelId: string, prompt: string, timeoutMs: number = 60000): Promise<string> {
+    const rawModel = modelId.replace('opencode/', '');
+    
+    // 1. Crear sesión
+    const createSessionRes = await fetch(`http://127.0.0.1:${this.serverPort}/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    if (!createSessionRes.ok) {
+      throw new Error(`Fallo al crear sesión HTTP: ${createSessionRes.statusText}`);
+    }
+    const sessionData: any = await createSessionRes.json();
+    const sessionId = sessionData.id;
+
+    // 2. Enviar prompt
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const msgRes = await fetch(`http://127.0.0.1:${this.serverPort}/session/${sessionId}/message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: { providerID: 'opencode', modelID: rawModel },
+          parts: [{ type: 'text', text: prompt }]
+        })
+      });
+
+      if (!msgRes.ok) {
+        throw new Error(`Error en servidor OpenCode: ${msgRes.statusText}`);
+      }
+
+      const msgData: any = await msgRes.json();
+      const textParts = (msgData.parts || [])
+        .filter((p: any) => p.type === 'text')
+        .map((p: any) => p.text)
+        .join('\n');
+
+      return textParts.trim();
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  /**
+   * Ejecuta una tarea con modelo especificado o por defecto, usando la API rápida de OpenCode
+   */
+  async runTaskWithModel(model: string, prompt: string): Promise<string> {
+    const startTime = Date.now();
+    console.log(`\n🤖 [OPENCODE] Invocando modelo ${model} via daemon...`);
+    console.log(`📝 [PROMPT] ${prompt.slice(0, 100)}...`);
+
+    try {
+      const response = await this.queryServer(model, prompt, 120000);
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`✅ [OPENCODE] Respuesta recibida en ${duration}s (${response.length} chars)`);
+      return response;
+    } catch (err: any) {
+      console.warn(`⚠️ [OPENCODE] Error vía daemon HTTP (${err.message}). Intentando CLI directo...`);
+      const { stdout } = await execFilePromise('opencode', ['run', '--pure', '--model', model, prompt], {
+        timeout: 90000
+      });
+      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`✅ [OPENCODE CLI] Respuesta recibida en ${duration}s`);
+      return stdout.trim();
+    }
+  }
+
+  /**
+   * Ejecuta una tarea con razonamiento profundo
    */
   async runDeepTask(prompt: string): Promise<string> {
-    const startTime = Date.now();
-    console.log(`\n🤖 [OPENCODE] Invocando modelo ${this.reasoningModel}...`);
-    console.log(`📝 [PROMPT] ${prompt.slice(0, 150)}...`);
-
-    try {
-      const args = ['run', '--pure', '--model', this.reasoningModel, prompt];
-      const { stdout } = await execFilePromise('opencode', args, { timeout: 150000 });
-      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`✅ [OPENCODE] Respuesta recibida en ${duration}s (${stdout.length} caracteres)`);
-      return stdout.trim();
-    } catch (error: any) {
-      console.warn(`⚠️ [OPENCODE] Fallback tras error o timeout en ${this.reasoningModel}: ${error.message}`);
-      return this.runFastTask(prompt);
-    }
+    return this.runTaskWithModel(this.reasoningModel, prompt);
   }
 
   /**
-   * Fallback ultrarrápido con mimo-v2.6-flash-free sin pasar por shell bash.
+   * Fallback ultrarrápido con mimo-v2.6-flash-free
    */
   async runFastTask(prompt: string): Promise<string> {
-    const startTime = Date.now();
-    console.log(`🔄 [OPENCODE FALLBACK] Invocando modelo rápido ${this.fallbackModel}...`);
-
-    try {
-      const args = ['run', '--pure', '--model', this.fallbackModel, prompt];
-      const { stdout } = await execFilePromise('opencode', args, { timeout: 90000 });
-      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`✅ [OPENCODE FALLBACK] Respuesta recibida en ${duration}s`);
-      return stdout.trim();
-    } catch (error: any) {
-      console.error(`❌ [OPENCODE ERROR] ${error.message}`);
-      return `Error al invocar OpenCode: ${error.message}`;
-    }
+    return this.runTaskWithModel(this.fallbackModel, prompt);
   }
 
   /**
-   * Tarea general por defecto (intenta razonamiento profundo).
+   * Tarea general por defecto
    */
   async runTask(prompt: string): Promise<string> {
     return this.runDeepTask(prompt);

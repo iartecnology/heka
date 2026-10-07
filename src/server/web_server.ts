@@ -115,7 +115,7 @@ export function startWebServer(alpaca: AlpacaClient, port: number = 3000) {
         try {
           const parsed = JSON.parse(body || '{}');
           const prompt = parsed.prompt?.trim();
-          const selectedModel = parsed.model || 'opencode/big-pickle';
+          const selectedModel = parsed.model || 'opencode/mimo-v2.6-flash-free';
 
           if (!prompt) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -126,14 +126,48 @@ export function startWebServer(alpaca: AlpacaClient, port: number = 3000) {
           const startTime = Date.now();
           console.log(`🧪 [TEST CHAT] Invocando ${selectedModel} con prompt puro: "${prompt.slice(0, 100)}..."`);
           
-          // Ejecución 100% pura: sin ningún system prompt ni instrucciones adicionales
-          const args = ['run', '--pure', '--model', selectedModel, prompt];
-          const { stdout, stderr } = await execFilePromise('opencode', args, { timeout: 180000 });
+          const rawModel = selectedModel.replace('opencode/', '');
+
+          // 1. Crear sesión rápida en el servidor OpenCode local
+          const sessionRes = await fetch('http://127.0.0.1:4096/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+          });
+
+          if (!sessionRes.ok) {
+            throw new Error(`No se pudo crear sesión en el servidor OpenCode: ${sessionRes.statusText}`);
+          }
+
+          const sessionData: any = await sessionRes.json();
+          const sessionId = sessionData.id;
+
+          // 2. Enviar prompt directo sin nada precargado
+          const msgRes = await fetch(`http://127.0.0.1:4096/session/${sessionId}/message`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: { providerID: 'opencode', modelID: rawModel },
+              parts: [{ type: 'text', text: prompt }]
+            })
+          });
+
+          if (!msgRes.ok) {
+            throw new Error(`Error en el modelo: ${msgRes.statusText}`);
+          }
+
+          const msgData: any = await msgRes.json();
+          const textResponse = (msgData.parts || [])
+            .filter((p: any) => p.type === 'text')
+            .map((p: any) => p.text)
+            .join('\n')
+            .trim();
+
           const duration = ((Date.now() - startTime) / 1000).toFixed(2);
 
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
-            response: (stdout || stderr || '').trim(),
+            response: textResponse || '(Sin respuesta de texto)',
             duration: Number(duration),
             model: selectedModel
           }));
@@ -141,8 +175,7 @@ export function startWebServer(alpaca: AlpacaClient, port: number = 3000) {
           console.error(`❌ [TEST CHAT ERROR] ${err.message}`);
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ 
-            error: err.message || 'Error al ejecutar el modelo',
-            details: err.stderr || err.stdout || null
+            error: err.message || 'Error al ejecutar el modelo'
           }));
         }
       });
