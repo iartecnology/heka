@@ -311,7 +311,11 @@
       <span class="tag">AUTONOMOUS SQUAD ENGINE</span>
     </div>
     <div class="top-actions">
+      <div id="sync-badge" style="font-size: 11px; padding: 4px 8px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; color: var(--success); display: flex; align-items: center; gap: 6px;">
+        <span class="pulse-dot"></span> Sincronizado: <span id="last-sync-time">Cargando...</span>
+      </div>
       <div id="clock" style="font-size: 13px; color: var(--muted); font-family: 'JetBrains Mono', monospace;">Cargando hora...</div>
+      <button class="terminal-btn" onclick="forceRefreshAll()" style="color:var(--primary); padding: 7px 12px;">🔄 Refrescar</button>
       <button class="btn-panic" onclick="triggerPanic()">🛑 KILL-SWITCH</button>
     </div>
   </header>
@@ -558,10 +562,22 @@
           // Renderizar tabla de posiciones
           renderPositions(data.positions || []);
           renderChart(cash, invested);
+
+          const syncTimeEl = document.getElementById('last-sync-time');
+          if (syncTimeEl) {
+            const now = new Date();
+            syncTimeEl.innerText = now.toLocaleTimeString('es-ES', { timeZone: 'America/New_York' }) + ' ET';
+          }
         }
       } catch (err) {
         console.error('Error fetching status:', err);
       }
+    }
+
+    async function forceRefreshAll() {
+      const syncEl = document.getElementById('last-sync-time');
+      if (syncEl) syncEl.innerText = 'Sincronizando...';
+      await Promise.all([fetchStatus(), fetchAgents(), fetchLogs()]);
     }
 
     async function fetchAgents() {
