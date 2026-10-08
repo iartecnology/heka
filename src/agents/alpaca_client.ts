@@ -58,6 +58,9 @@ export class AlpacaClient {
     time_in_force: 'day' | 'gtc';
     limit_price?: number;
     stop_price?: number;
+    order_class?: 'simple' | 'bracket' | 'oto' | 'oco';
+    take_profit?: { limit_price: number };
+    stop_loss?: { stop_price: number; limit_price?: number };
   }) {
     const res = await this.client.post('/v2/orders', params);
     return res.data;

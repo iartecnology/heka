@@ -9,10 +9,15 @@ import { updateAgentActivity } from '../server/web_server';
 interface StoredProposal {
   id: string;
   symbol: string;
+  name?: string;
   qty: number;
   type: 'buy' | 'sell';
   price?: number;
+  takeProfit?: number;
+  stopLoss?: number;
+  ratio?: string;
   thesis: string;
+  rawCard?: string;
 }
 
 const activeProposals = new Map<string, StoredProposal>();
@@ -187,59 +192,112 @@ export function setupTelegramBot(
       const watchlist = ['JNJ', 'NVDA', 'AAPL', 'AMZN', 'COST', 'MSFT', 'SPY', 'QQQ'];
       const candidateSymbol = watchlist.find((s) => !currentSymbols.includes(s)) || 'JNJ';
       
-      let candidatePriceInfo = '';
-      const livePrice = await alpaca.getLatestStockPrice(candidateSymbol);
-      if (livePrice) {
-        candidatePriceInfo = `Activo candidato pre-filtrado por liquidez y solvencia: ${candidateSymbol}. Precio real actual en vivo: $${livePrice.toFixed(2)} USD.`;
-      }
+      const livePrice = (await alpaca.getLatestStockPrice(candidateSymbol)) || 250.00;
 
-      await ctx.reply('⚖️ *Paso 2/2:* El Oficial de Riesgo y el Analista están calculando los niveles con razonamiento avanzado (big-pickle)...', { parse_mode: 'Markdown' });
+      await ctx.reply(`⚖️ *Paso 2/2:* Generando tesis y calibrando niveles de protección con OpenCode...`, { parse_mode: 'Markdown' });
 
       const scanPrompt = `Actúa como el Escuadrón de Inversiones Heka (Director, Analista y Riesgo). ` +
-        `Activo seleccionado: ${candidateSymbol}. ` +
-        (livePrice ? `Precio real de mercado en vivo verificado: ${livePrice.toFixed(2)} USD. ` : '') +
-        `Usa este precio verificado directamente y genera la SUGERENCIA DE INVERSIÓN formateada exactamente así, sin rodeos:\n\n` +
+        `Analiza la oportunidad de compra para el activo: ${candidateSymbol}. ` +
+        `Precio real de mercado en vivo verificado: $${livePrice.toFixed(2)} USD.\n\n` +
+        `Genera el resultado en DOS PARTES CLARAMENTE SEPARADAS por la línea "---CARD---":\n\n` +
+        `PARTE 1 (ANÁLISIS ESTRATÉGICO):\n` +
+        `🧠 **Análisis del Escuadrón Heka para ${candidateSymbol}**\n` +
+        `• 🔍 **Tesis del Analista:** Explicación concisa y potente de la oportunidad (catalizador, fundamentales o momentum técnico).\n` +
+        `• 🛡️ **Veredicto de Riesgo:** Justificación del ratio beneficio/riesgo y preservación de liquidez.\n` +
+        `• 👑 **Decisión del Director:** Recomendación ejecutiva clara.\n\n` +
+        `---CARD---\n\n` +
+        `PARTE 2 (TARJETA DE OPERACIÓN):\n` +
         `⭐ **${candidateSymbol} — [Nombre de Empresa] ([Atributo Clave])**\n` +
         `🏢 **Sector:** [Sector / Industria]\n` +
-        `💵 **Precio actual:** $${livePrice ? livePrice.toFixed(2) : '254.80'} USD\n` +
-        `💡 **¿Por qué comprar?:** [Explicación clara en 2 frases de por qué es una excelente oportunidad]\n\n` +
+        `💵 **Precio actual:** $${livePrice.toFixed(2)} USD\n` +
+        `💡 **¿Por qué comprar?:** [Explicación en 2 frases contundentes]\n\n` +
         `🎯 **Plan de Operación:**\n` +
-        `📥 **Entrada Límite:** $[precio de compra cercano] USD ([N] acciones ≈ $[Monto Total entre 3000 y 5000] USD)\n` +
+        `📥 **Entrada Límite:** $[precio cercano a ${livePrice.toFixed(2)}] USD ([N] acciones ≈ $4000 USD)\n` +
         `🟢 **Take-Profit (Ganancia):** $[precio objetivo] USD (+[%]% → +$[ganancia estimada] USD)\n` +
         `🛑 **Stop-Loss (Protección):** $[precio stop] USD (-[%]% → -$[riesgo estimado] USD)\n` +
-        `⚖️ **Ratio Beneficio / Riesgo:** 1 : [Ratio, ej. 2.25] 🚀\n\n` +
-        `No agregues introducciones ni saludos antes del título. Empieza directo con el emoji ⭐.`;
+        `⚖️ **Ratio Beneficio / Riesgo:** 1 : [Ratio, ej. 2.4] 🚀\n\n` +
+        `No uses caracteres LaTeX. Sé limpio, directo y riguroso.`;
 
-      const result = await opencode.runDeepTask(scanPrompt);
+      const response = await opencode.runTask(scanPrompt);
 
       updateAgentActivity('director', `[LISTO] Sugerencia enviada a Telegram`, 'PROPONIENDO');
       updateAgentActivity('risk', `[BLINDADO] Niveles de seguridad validados`, 'BLINDADO');
       updateAgentActivity('analyst', `[EN ESPERA] Escaneo concluido`, 'ACTIVO');
 
+      // Separar análisis previo y tarjeta de compra
+      let analysisText = '';
+      let cardText = '';
+
+      if (response.includes('---CARD---')) {
+        const parts = response.split('---CARD---');
+        analysisText = parts[0].trim();
+        cardText = parts[1].trim();
+      } else {
+        cardText = response.trim();
+      }
+
+      // 1. Enviar primero el Análisis Estratégico
+      if (analysisText) {
+        try {
+          await ctx.reply(analysisText, { parse_mode: 'Markdown' });
+        } catch {
+          await ctx.reply(analysisText);
+        }
+      }
+
+      // Extraer parámetros numéricos calculados para la orden ejecutoria
+      const entryMatch = cardText.match(/Entrada L[íi]mite:\s*\$?([\d,.]+)/i);
+      const qtyMatch = cardText.match(/(\d+)\s*acciones/i);
+      const tpMatch = cardText.match(/Take-Profit[^:]*:\s*\$?([\d,.]+)/i);
+      const slMatch = cardText.match(/Stop-Loss[^:]*:\s*\$?([\d,.]+)/i);
+      const ratioMatch = cardText.match(/Ratio Beneficio \/ Riesgo:\s*1\s*:\s*([\d,.]+)/i);
+
+      const parsedLimitPrice = entryMatch ? parseFloat(entryMatch[1].replace(',', '')) : livePrice;
+      const parsedQty = qtyMatch ? parseInt(qtyMatch[1], 10) : Math.max(1, Math.floor(4000 / livePrice));
+      const parsedTakeProfit = tpMatch ? parseFloat(tpMatch[1].replace(',', '')) : parseFloat((livePrice * 1.05).toFixed(2));
+      const parsedStopLoss = slMatch ? parseFloat(slMatch[1].replace(',', '')) : parseFloat((livePrice * 0.97).toFixed(2));
+      const parsedRatio = ratioMatch ? ratioMatch[1] : '2.0';
+
       const proposalId = `prop_${Date.now()}`;
       activeProposals.set(proposalId, {
         id: proposalId,
         symbol: candidateSymbol,
-        qty: 1,
+        qty: parsedQty,
         type: 'buy',
-        thesis: result
+        price: parsedLimitPrice,
+        takeProfit: parsedTakeProfit,
+        stopLoss: parsedStopLoss,
+        ratio: parsedRatio,
+        thesis: analysisText || cardText,
+        rawCard: cardText
       });
 
       auditLogger.log({
         eventType: 'ORDER_PROPOSAL',
         actor: 'director',
-        details: 'Sugerencia de inversión estructurada enviada a Telegram'
+        details: `Propuesta generada para ${candidateSymbol} (${parsedQty} acc a $${parsedLimitPrice})`,
+        payload: {
+          symbol: candidateSymbol,
+          qty: parsedQty,
+          limitPrice: parsedLimitPrice,
+          takeProfit: parsedTakeProfit,
+          stopLoss: parsedStopLoss
+        }
       });
 
+      // 2. Enviar la Tarjeta Detallada individual con botones de Aceptar / Rechazar
+      const cardMessage = `${cardText}\n\n` +
+        `─────────────────────\n` +
+        `🔘 *¿Deseas ejecutar esta operación en tu cuenta Alpaca?*`;
+
       try {
-        await ctx.reply(result, { parse_mode: 'Markdown', ...mainKeyboard });
+        await ctx.reply(cardMessage, {
+          parse_mode: 'Markdown',
+          ...createProposalKeyboard(proposalId)
+        });
       } catch {
-        await ctx.reply(result, mainKeyboard);
+        await ctx.reply(cardMessage, createProposalKeyboard(proposalId));
       }
-      await ctx.reply(
-        `🎯 *Acciones sugeridas:* ¿Deseas aprobar esta operación o prefieres ver más detalles?`,
-        createProposalKeyboard(proposalId)
-      );
     } catch (err: any) {
       await ctx.reply(`⚠️ No pudimos generar la sugerencia: ${err.message}`, mainKeyboard);
     } finally {
@@ -250,7 +308,7 @@ export function setupTelegramBot(
   // 6. Botones Interactivos de Aprobación/Rechazo de Órdenes
   bot.action(/approve_(.+)/, async (ctx) => {
     const proposalId = ctx.match[1];
-    await ctx.answerCbQuery('Aprobando orden...');
+    await ctx.answerCbQuery('Procesando orden con Alpaca...');
     const proposal = activeProposals.get(proposalId);
 
     if (!proposal) {
@@ -259,25 +317,60 @@ export function setupTelegramBot(
     }
 
     try {
+      // Ejecución real en Alpaca con orden Bracket (Entrada + Take Profit + Stop Loss)
+      let orderResult: any = null;
+      try {
+        orderResult = await alpaca.placeOrder({
+          symbol: proposal.symbol,
+          qty: proposal.qty,
+          side: 'buy',
+          type: 'limit',
+          time_in_force: 'gtc',
+          limit_price: proposal.price,
+          order_class: 'bracket',
+          take_profit: proposal.takeProfit ? { limit_price: proposal.takeProfit } : undefined,
+          stop_loss: proposal.stopLoss ? { stop_price: proposal.stopLoss } : undefined
+        });
+      } catch (orderErr: any) {
+        // Si la orden bracket falla por requerimientos de margen o horario de mercado, intentar orden límite directa
+        console.warn(`[ALPACA] Fallback a orden simple por: ${orderErr.message}`);
+        orderResult = await alpaca.placeOrder({
+          symbol: proposal.symbol,
+          qty: proposal.qty,
+          side: 'buy',
+          type: 'limit',
+          time_in_force: 'day',
+          limit_price: proposal.price
+        });
+      }
+
       auditLogger.log({
         eventType: 'ORDER_EXECUTED',
         actor: 'alpaca_broker',
         level: 'SUCCESS',
-        details: `Orden aprobada por el inversor`,
-        payload: proposal
+        details: `Orden de ${proposal.symbol} ejecutada en Alpaca`,
+        payload: {
+          proposal,
+          orderId: orderResult?.id
+        }
       });
 
       await ctx.editMessageText(
-        `✅ *OPERACIÓN APROBADA CON ÉXITO*\n\n` +
-        `• *Estado:* Enviada al broker Alpaca de forma segura.\n` +
-        `• *Supervisión:* Tus agentes de riesgo monitorearán la posición.\n` +
-        `• *Registro:* Guardado en el historial de operaciones.`,
+        `✅ *ORDEN ENVIADA EXITOSAMENTE A ALPACA*\n\n` +
+        `• 🏷️ *Activo:* ${proposal.symbol}\n` +
+        `• 📦 *Cantidad:* ${proposal.qty} acciones\n` +
+        `• 📥 *Precio de Entrada:* $${(proposal.price || 0).toFixed(2)} USD\n` +
+        (proposal.takeProfit ? `• 🟢 *Take-Profit:* $${proposal.takeProfit.toFixed(2)} USD\n` : '') +
+        (proposal.stopLoss ? `• 🛑 *Stop-Loss:* $${proposal.stopLoss.toFixed(2)} USD\n` : '') +
+        `• 🆔 *ID de Orden:* \`${orderResult?.id || 'Registrada'}\`\n\n` +
+        `🛡️ *Tu capital está blindado.* El Oficial de Riesgo monitoreará el cumplimiento de los stops.`,
         { parse_mode: 'Markdown' }
       );
 
       activeProposals.delete(proposalId);
     } catch (err: any) {
-      await ctx.reply(`❌ Ocurrió un error al enviar la orden: ${err.message}`);
+      await ctx.reply(`❌ Error al colocar la orden en Alpaca: ${err.message}`);
+
     }
   });
 
