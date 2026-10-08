@@ -38,9 +38,18 @@ export class OpenCodeRunner {
   /**
    * Envía un mensaje vía HTTP API rápida a la sesión de OpenCode
    */
-  private async queryServer(modelId: string, prompt: string, timeoutMs: number = 60000): Promise<string> {
+  private async queryServer(modelId: string, prompt: string, timeoutMs: number = 180000): Promise<string> {
     const rawModel = modelId.replace('opencode/', '');
     
+    // Asegurar que el daemon responde; si no, reiniciar spawn
+    try {
+      await fetch(`http://127.0.0.1:${this.serverPort}/path`, { signal: AbortSignal.timeout(3000) });
+    } catch {
+      this.serverStarted = false;
+      this.ensureServer();
+      await new Promise(r => setTimeout(r, 2000));
+    }
+
     // 1. Crear sesión
     const createSessionRes = await fetch(`http://127.0.0.1:${this.serverPort}/session`, {
       method: 'POST',
@@ -93,18 +102,23 @@ export class OpenCodeRunner {
     console.log(`📝 [PROMPT] ${prompt.slice(0, 100)}...`);
 
     try {
-      const response = await this.queryServer(model, prompt, 120000);
+      const response = await this.queryServer(model, prompt, 180000);
       const duration = ((Date.now() - startTime) / 1000).toFixed(1);
       console.log(`✅ [OPENCODE] Respuesta recibida en ${duration}s (${response.length} chars)`);
       return response;
     } catch (err: any) {
       console.warn(`⚠️ [OPENCODE] Error vía daemon HTTP (${err.message}). Intentando CLI directo...`);
-      const { stdout } = await execFilePromise('opencode', ['run', '--pure', '--model', model, prompt], {
-        timeout: 90000
-      });
-      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`✅ [OPENCODE CLI] Respuesta recibida en ${duration}s`);
-      return stdout.trim();
+      try {
+        const { stdout } = await execFilePromise('opencode', ['run', '--pure', '--model', model, prompt], {
+          timeout: 120000
+        });
+        const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`✅ [OPENCODE CLI] Respuesta recibida en ${duration}s`);
+        return stdout.trim();
+      } catch (cliErr: any) {
+        console.error(`❌ [OPENCODE CLI ERROR] ${cliErr.message}`);
+        throw new Error(`El modelo tardó más de lo esperado o el servicio no respondió a tiempo. Intenta de nuevo.`);
+      }
     }
   }
 
